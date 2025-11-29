@@ -210,7 +210,7 @@ export function TripListScreen({ navigation }: Props) {
           <Text style={styles.title}>Trips</Text>
           <TouchableOpacity
             style={styles.menuIconButton}
-            onPress={() => {}}
+            onPress={() => Alert.alert('About', 'Roam v1.0.0\nYour AI Travel Companion')}
           >
             <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
           </TouchableOpacity>

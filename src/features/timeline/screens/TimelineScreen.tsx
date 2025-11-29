@@ -544,7 +544,8 @@ export function TimelineScreen({ navigation, route }: Props) {
           onPress={() => navigation.navigate('Chat', { tripId })}
           activeOpacity={0.8}
         >
-          <Text style={styles.chatButtonText}>💬 Ask Trip Brain</Text>
+          <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FFFFFF" style={styles.chatIcon} />
+          <Text style={styles.chatButtonText}>ASK TRIP BRAIN</Text>
         </TouchableOpacity>
 
         <View style={styles.bottomSpacer} />
@@ -1091,14 +1092,21 @@ const styles = StyleSheet.create({
   chatButton: {
     paddingVertical: 16,
     backgroundColor: '#000000',
-    borderRadius: 8,
+    borderRadius: 0,
     alignItems: 'center',
     marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  chatIcon: {
+    marginRight: 8,
   },
   chatButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   bottomSpacer: {
     height: 32,

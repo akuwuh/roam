@@ -12,6 +12,8 @@ import {
   SafeAreaView,
   FlatList,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -173,80 +175,86 @@ export function ChatScreen({ navigation, route }: Props) {
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>TRIP BRAIN</Text>
-        <View style={styles.headerRight}>
-          <View style={[styles.statusBadge, isOnline ? styles.onlineBadge : styles.offlineBadge]}>
-            <Text style={styles.statusBadgeText}>
-              {isOnline ? 'ONLINE' : 'OFFLINE'}
-            </Text>
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.backButton}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>TRIP BRAIN</Text>
+          <View style={styles.headerRight}>
+            <View style={[styles.statusBadge, isOnline ? styles.onlineBadge : styles.offlineBadge]}>
+              <Text style={styles.statusBadgeText}>
+                {isOnline ? 'ONLINE' : 'OFFLINE'}
+              </Text>
+            </View>
+            {messages.length > 0 && (
+              <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
+                <Text style={styles.clearButtonText}>Clear</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          {messages.length > 0 && (
-            <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
-              <Text style={styles.clearButtonText}>Clear</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {renderKBStatus()}
-
-      {error && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(_, index) => index.toString()}
-        contentContainerStyle={[
-          styles.messageList,
-          messages.length === 0 && styles.messageListEmpty,
-        ]}
-        ListEmptyComponent={renderEmptyState}
-        showsVerticalScrollIndicator={false}
-      />
-
-      {renderPendingAction()}
-
-      <View style={styles.inputContainer}>
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={() => ask("What's on my schedule today?")}
-            disabled={isGenerating}
-          >
-            <Text style={styles.quickActionText}>Today's Schedule</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={() => ask("Do I have any free time?")}
-            disabled={isGenerating}
-          >
-            <Text style={styles.quickActionText}>Free Time?</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={() => ask("What should I know about this destination?")}
-            disabled={isGenerating}
-          >
-            <Text style={styles.quickActionText}>Tips</Text>
-          </TouchableOpacity>
         </View>
 
-        <ChatInput
-          onSend={ask}
-          disabled={isGenerating}
-          placeholder={isGenerating ? 'Thinking...' : 'Ask about your trip...'}
+        {renderKBStatus()}
+
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(_, index) => index.toString()}
+          contentContainerStyle={[
+            styles.messageList,
+            messages.length === 0 && styles.messageListEmpty,
+          ]}
+          ListEmptyComponent={renderEmptyState}
+          showsVerticalScrollIndicator={false}
         />
-      </View>
+
+        {renderPendingAction()}
+
+        <View style={styles.inputContainer}>
+          {/* Quick Actions */}
+          <View style={styles.quickActions}>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => ask("What's on my schedule today?")}
+              disabled={isGenerating}
+            >
+              <Text style={styles.quickActionText}>Today's Schedule</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => ask("Do I have any free time?")}
+              disabled={isGenerating}
+            >
+              <Text style={styles.quickActionText}>Free Time?</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => ask("What should I know about this destination?")}
+              disabled={isGenerating}
+            >
+              <Text style={styles.quickActionText}>Tips</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ChatInput
+            onSend={ask}
+            disabled={isGenerating}
+            placeholder={isGenerating ? 'Thinking...' : 'Ask about your trip...'}
+          />
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -255,6 +263,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  keyboardContainer: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
