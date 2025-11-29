@@ -106,8 +106,8 @@ export function TimelineScreen({ navigation, route }: Props) {
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('TripList')}>
+          <Text style={styles.backButton}>← Trips</Text>
         </TouchableOpacity>
         <View style={styles.headerRow}>
           <Text style={styles.title}>{trip.name}</Text>
@@ -170,13 +170,7 @@ export function TimelineScreen({ navigation, route }: Props) {
         ))}
       </ScrollView>
 
-      <TouchableOpacity
-        style={styles.chatButton}
-        onPress={() => navigation.navigate('Chat', { tripId })}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.chatButtonText}>Ask Trip Brain</Text>
-      </TouchableOpacity>
+      {/* Removed since we now have bottom tabs for navigation */}
 
       {/* Add Item Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent>
@@ -385,18 +379,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     fontWeight: '500',
-  },
-  chatButton: {
-    margin: 24,
-    paddingVertical: 16,
-    backgroundColor: '#000000',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  chatButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,

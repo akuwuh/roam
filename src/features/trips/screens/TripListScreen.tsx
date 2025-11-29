@@ -56,7 +56,7 @@ export function TripListScreen({ navigation }: Props) {
       setNewTripName('');
       setStartDate('');
       setEndDate('');
-      navigation.navigate('Timeline', { tripId: trip.id });
+      navigation.navigate('TripTabs', { tripId: trip.id });
     } finally {
       setIsCreating(false);
     }
@@ -70,7 +70,7 @@ export function TripListScreen({ navigation }: Props) {
   const renderTrip = ({ item }: { item: Trip }) => (
     <TouchableOpacity
       style={styles.tripCard}
-      onPress={() => navigation.navigate('Timeline', { tripId: item.id })}
+      onPress={() => navigation.navigate('TripTabs', { tripId: item.id })}
       activeOpacity={0.7}
     >
       <View style={styles.tripContent}>

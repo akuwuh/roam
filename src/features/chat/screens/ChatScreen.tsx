@@ -127,8 +127,8 @@ export function ChatScreen({ navigation, route }: Props) {
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('TripList')}>
+          <Text style={styles.backButton}>← Trips</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Trip Brain</Text>

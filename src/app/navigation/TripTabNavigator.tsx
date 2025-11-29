@@ -8,9 +8,9 @@ import { View, Text, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList, TripTabsParamList } from '../../types';
-import { TimelineScreen } from '../../features/timeline';
-import { ChatScreen } from '../../features/chat';
-import { TripSettingsScreen } from '../../features/trips';
+import { TimelineTabScreen } from '../../features/timeline';
+import { ChatTabScreen } from '../../features/chat';
+import { TripSettingsTabScreen } from '../../features/trips';
 
 type Props = {
   route: RouteProp<RootStackParamList, 'TripTabs'>;
@@ -52,19 +52,19 @@ export function TripTabNavigator({ route }: Props) {
     >
       <Tab.Screen
         name="Timeline"
-        component={TimelineScreen}
+        component={TimelineTabScreen}
         initialParams={{ tripId }}
         options={{ tabBarLabel: 'Itinerary' }}
       />
       <Tab.Screen
         name="Chat"
-        component={ChatScreen}
+        component={ChatTabScreen}
         initialParams={{ tripId }}
         options={{ tabBarLabel: 'Trip Brain' }}
       />
       <Tab.Screen
         name="Settings"
-        component={TripSettingsScreen}
+        component={TripSettingsTabScreen}
         initialParams={{ tripId }}
         options={{ tabBarLabel: 'Settings' }}
       />
