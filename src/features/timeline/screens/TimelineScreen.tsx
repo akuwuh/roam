@@ -446,6 +446,21 @@ export function TimelineScreen({ navigation, route }: Props) {
               <Text style={styles.generateButtonText}>GENERATE ITINERARY</Text>
             )}
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.fillBlanksButton,
+              (isFillingGaps || !modelStatus.isDownloaded) && styles.buttonDisabled
+            ]}
+            onPress={handleFillGaps}
+            disabled={isFillingGaps || !modelStatus.isDownloaded}
+          >
+            {isFillingGaps ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.fillBlanksButtonText}>FILL IN BLANKS</Text>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Offline Mode Indicator */}
@@ -914,7 +929,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  // Removed fillBlanksButton styles
+  fillBlanksButton: {
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  fillBlanksButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
   buttonDisabled: {
     opacity: 0.5,
   },
