@@ -35,9 +35,9 @@ export function useTrips(): UseTripsResult {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadTrips = useCallback(async () => {
+  const loadTrips = useCallback(async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       setError(null);
       const loaded = await tripRepository.getTrips();
       
@@ -58,16 +58,22 @@ export function useTrips(): UseTripsResult {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trips');
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [tripRepository]);
 
   // Reload trips when screen is focused
   useFocusEffect(
     useCallback(() => {
-      loadTrips();
+      // Pass true for silent refresh to avoid flickering
+      loadTrips(true);
     }, [loadTrips])
   );
+
+  // Initial load
+  useEffect(() => {
+    loadTrips(false);
+  }, []);
 
   const createNewTrip = useCallback(
     async (params: {

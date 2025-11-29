@@ -40,6 +40,47 @@ function calculateDuration(startDate: string, endDate: string): number {
   return diffDays;
 }
 
+function findScheduleGaps(day: TimelineDay): { start: string; end: string }[] {
+  const gaps: { start: string; end: string }[] = [];
+  const date = day.dayPlan.date;
+  
+  // Sort items by start time
+  const sortedItems = [...day.items].sort((a, b) => 
+    new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()
+  );
+
+  // Define day bounds (9am to 9pm)
+  const dayStart = new Date(`${date}T09:00:00`).getTime();
+  const dayEnd = new Date(`${date}T21:00:00`).getTime();
+
+  let lastEndTime = dayStart;
+
+  for (const item of sortedItems) {
+    const itemStart = new Date(item.startDateTime).getTime();
+    const itemEnd = new Date(item.endDateTime).getTime();
+
+    // Check for gap before this item
+    if (itemStart - lastEndTime > 2 * 60 * 60 * 1000) { // > 2 hours
+      gaps.push({
+        start: new Date(lastEndTime).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        end: new Date(itemStart).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
+      });
+    }
+
+    lastEndTime = Math.max(lastEndTime, itemEnd);
+  }
+
+  // Check for gap after last item
+  if (dayEnd - lastEndTime > 2 * 60 * 60 * 1000) {
+    gaps.push({
+      start: new Date(lastEndTime).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+      end: '21:00'
+    });
+  }
+
+  return gaps;
+}
+
 export function TimelineScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
   const { trip, days, allItems, isLoading, addItem, addDay, deleteItem, refresh } = useTimeline(tripId);
@@ -57,6 +98,7 @@ export function TimelineScreen({ navigation, route }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingDay, setIsAddingDay] = useState(false);
   const [isGeneratingFull, setIsGeneratingFull] = useState(false);
+  const [isFillingGaps, setIsFillingGaps] = useState(false);
 
   const handleAddItem = async () => {
     if (!selectedDayId || !newItemTitle.trim() || !newItemStart || !newItemEnd) return;
@@ -205,6 +247,41 @@ export function TimelineScreen({ navigation, route }: Props) {
       await refresh();
     } finally {
       setIsGeneratingFull(false);
+    }
+  };
+
+  const handleFillGaps = async () => {
+    if (!trip) return;
+    
+    setIsFillingGaps(true);
+    try {
+      let hasGaps = false;
+      
+      // Check each day for gaps
+      for (const day of days) {
+        if (day.items.length === 0) continue; // Skip empty days (use Generate Itinerary instead)
+        
+        const gaps = findScheduleGaps(day);
+        if (gaps.length > 0) {
+          hasGaps = true;
+          // Generate plan for the gaps
+          await generatePlan({
+            tripId,
+            dayPlanId: day.dayPlan.id,
+            city: trip.destination || trip.name,
+            date: day.dayPlan.date,
+            timeRanges: gaps,
+          });
+        }
+      }
+      
+      if (!hasGaps) {
+        Alert.alert('No Gaps Found', 'Your schedule looks pretty full already!');
+      } else {
+        await refresh();
+      }
+    } finally {
+      setIsFillingGaps(false);
     }
   };
 
@@ -406,9 +483,20 @@ export function TimelineScreen({ navigation, route }: Props) {
           </TouchableOpacity>
           
           {!hasEmptyDays && totalActivities > 0 && (
-            <Text style={styles.aiHelperText}>
-              All days have activities. Use Trip Brain to get suggestions.
-            </Text>
+            <TouchableOpacity
+              style={[
+                styles.fillBlanksButton,
+                isFillingGaps && styles.buttonDisabled
+              ]}
+              onPress={handleFillGaps}
+              disabled={isFillingGaps}
+            >
+              {isFillingGaps ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.fillBlanksButtonText}>FILL SCHEDULE GAPS</Text>
+              )}
+            </TouchableOpacity>
           )}
         </View>
 
@@ -585,9 +673,8 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#000000',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   headerTop: {
     flexDirection: 'row',
@@ -597,16 +684,17 @@ const styles = StyleSheet.create({
   backButton: {
     fontSize: 24,
     color: '#FFFFFF',
-    padding: 8,
+    padding: 4,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   settingsButton: {
-    padding: 8,
+    padding: 4,
   },
   settingsIcon: {
     fontSize: 20,
@@ -617,57 +705,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   tripInfoCard: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
+    backgroundColor: '#000000',
+    padding: 24,
+    marginTop: 0,
   },
   tripInfoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    marginBottom: 4,
   },
   tripInfoName: {
-    fontSize: 18,
+    fontSize: 28,
     fontWeight: '700',
-    color: '#000000',
+    color: '#FFFFFF',
     flex: 1,
+    marginRight: 16,
+    letterSpacing: -0.5,
   },
   editButton: {
-    borderWidth: 1,
-    borderColor: '#000000',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 0,
   },
   editButtonText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#000000',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   tripInfoDates: {
     fontSize: 14,
-    color: '#666666',
+    color: '#999999',
     marginTop: 4,
+    marginBottom: 24,
+    fontWeight: '500',
   },
   tripInfoStats: {
     flexDirection: 'row',
-    marginTop: 16,
-    gap: 32,
+    gap: 40,
   },
   tripInfoStat: {},
   tripInfoStatLabel: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#666666',
-    letterSpacing: 0.5,
-    marginBottom: 2,
+    letterSpacing: 1,
+    marginBottom: 4,
+    textTransform: 'uppercase',
   },
   tripInfoStatValue: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#000000',
+    color: '#FFFFFF',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -675,18 +767,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 24,
     marginBottom: 16,
+    paddingHorizontal: 4,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#000000',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   viewAllText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#666666',
+    fontWeight: '700',
+    color: '#999999',
     letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   emptyState: {
     alignItems: 'center',
@@ -713,26 +808,29 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   daySection: {
-    marginBottom: 16,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
+    marginBottom: 24,
+    backgroundColor: '#FFFFFF', // Updated from gray
+    borderRadius: 0,
     overflow: 'hidden',
   },
   dayHeader: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    paddingHorizontal: 0,
+    paddingVertical: 16,
+    borderBottomWidth: 0, // Removed border
   },
   dayTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#000000',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   dayContent: {
-    padding: 16,
+    padding: 0,
+    backgroundColor: '#F9F9F9', // Gray background for content area
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
   emptyDayContent: {
     padding: 32,
@@ -740,42 +838,61 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E5E5',
     borderStyle: 'dashed',
-    margin: 16,
+    marginHorizontal: 0,
+    marginVertical: 0,
     borderRadius: 8,
+    backgroundColor: '#FFFFFF',
   },
   emptyDayText: {
     fontSize: 14,
     color: '#999999',
     letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    fontWeight: '700',
   },
   itemRow: {
     flexDirection: 'row',
     marginBottom: 12,
+    alignItems: 'center',
   },
   itemTime: {
-    width: 60,
+    width: 80,
   },
   itemTimeText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#666666',
+    fontWeight: '700',
+    color: '#999999',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   itemContent: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 8,
-    marginRight: 8,
+    padding: 16,
+    borderRadius: 12,
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  itemContentInner: {
+    flex: 1,
   },
   itemTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#000000',
+    marginBottom: 4,
   },
   itemType: {
     fontSize: 12,
     color: '#666666',
-    marginTop: 4,
+    fontWeight: '500',
     textTransform: 'capitalize',
   },
   deleteItemButton: {
@@ -783,18 +900,19 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
   },
   deleteItemIcon: {
-    fontSize: 28,
+    fontSize: 20,
     color: '#000000',
-    fontWeight: '300',
+    fontWeight: '400',
   },
   addItemButton: {
-    paddingVertical: 12,
+    paddingVertical: 16,
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    backgroundColor: '#FFFFFF',
+    marginVertical: 8,
+    borderRadius: 8,
+    borderTopWidth: 0, // Removed border
   },
   addItemButtonText: {
     fontSize: 14,
@@ -857,11 +975,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  aiHelperText: {
-    fontSize: 12,
-    color: '#666666',
-    textAlign: 'center',
-    marginTop: 8,
+  fillBlanksButton: {
+    backgroundColor: '#000000',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  fillBlanksButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   buttonDisabled: {
     opacity: 0.5,
