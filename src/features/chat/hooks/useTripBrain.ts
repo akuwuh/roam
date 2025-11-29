@@ -53,11 +53,7 @@ function buildFallbackContext(items: TripItem[], tripName?: string): string {
     sorted.forEach(item => {
       const start = formatTime(item.startDateTime);
       const end = formatTime(item.endDateTime);
-      context += `- ${start}-${end}: ${item.title}`;
-      if (item.description) {
-        context += ` (${item.description})`;
-      }
-      context += '\n';
+      context += `- ${start}-${end}: ${item.title}\n`;
     });
   });
 
@@ -284,21 +280,26 @@ Would you like me to suggest something specific?`;
     console.log('  - System prompt length:', systemPrompt.length);
     console.log('  - System prompt preview:', systemPrompt.substring(0, 300));
 
-    // Include itinerary context with clear instructions and guardrails for brevity
-    const itineraryContext = context.length > 0 
-      ? `You are a concise travel assistant. Keep responses SHORT (2-3 sentences max).
+    // ULTRA-SIMPLIFIED prompt for small 1B model
+    // Small models struggle with complex instructions - keep it minimal
+    let itineraryContext: string;
+    
+    if (context.length > 0) {
+      // Truncate context to avoid overwhelming the small model
+      const shortContext = context.length > 800 ? context.substring(0, 800) : context;
+      
+      // Very simple, direct prompt structure
+      itineraryContext = `My trip schedule:
+${shortContext}
 
-ITINERARY:
-${context}
+${question}
 
-RULES:
-- Be brief and direct
-- Use bullet points for lists
-- No lengthy explanations
-- Answer only what was asked
+Answer in 1-2 short sentences. Be specific with times and activity names.`; 
+    } else {
+      itineraryContext = `${question}
 
-Question: ${question}`
-      : question;
+No activities scheduled yet. Tell me to add activities first.`;
+    }
     
     const conversationHistory: ChatMessage[] = [
       { role: 'user', content: itineraryContext },
@@ -387,6 +388,22 @@ Question: ${question}`
             .replace(/<start_of_turn>/g, '')
             .split(/(?:Christophe|Alain|Jules)/)[0]
             .trim();
+        }
+        
+        // GUARDRAIL: Check if response is garbage (only bullets, too short, etc.)
+        const cleanedForCheck = content.replace(/[-•*\s\n]/g, '').trim();
+        if (cleanedForCheck.length < 10) {
+          console.log('⚠️ Response appears to be garbage, generating fallback...');
+          // Generate a helpful fallback based on the itinerary
+          if (tripItems.length > 0) {
+            const todayActivities = tripItems.slice(0, 3); // Show first 3 activities
+            const activityList = todayActivities
+              .map(item => `• ${formatTime(item.startDateTime)}: ${item.title}`)
+              .join('\n');
+            content = `Here's what's on your schedule:\n\n${activityList}${tripItems.length > 3 ? `\n\n...and ${tripItems.length - 3} more activities.` : ''}`;
+          } else {
+            content = "You don't have any activities scheduled yet. Try generating an itinerary first!";
+          }
         }
         
         updated[lastIdx] = { ...updated[lastIdx], content };
