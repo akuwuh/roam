@@ -42,10 +42,12 @@ function calculateDuration(startDate: string, endDate: string): number {
 export function TimelineScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
   const { trip, days, allItems, isLoading, addItem, addDay, deleteItem, refresh } = useTimeline(tripId);
-  const { generatePlan, isGenerating: isPlanGenerating, replanLocal } = useHybridPlanner();
+  const { generatePlan, isGenerating: isPlanGenerating } = useHybridPlanner();
   const modelStatus = useModelStatus();
   
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<TripItem | null>(null);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemStart, setNewItemStart] = useState('');
@@ -53,7 +55,6 @@ export function TimelineScreen({ navigation, route }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingDay, setIsAddingDay] = useState(false);
   const [isGeneratingFull, setIsGeneratingFull] = useState(false);
-  const [isFillingBlanks, setIsFillingBlanks] = useState(false);
 
   const handleAddItem = async () => {
     if (!selectedDayId || !newItemTitle.trim() || !newItemStart || !newItemEnd) return;
@@ -82,6 +83,40 @@ export function TimelineScreen({ navigation, route }: Props) {
     setNewItemStart('');
     setNewItemEnd('');
     setSelectedDayId(null);
+  };
+
+  const handleEditItem = (item: TripItem) => {
+    setEditingItem(item);
+    setNewItemTitle(item.title);
+    // Extract time from datetime
+    const startTime = item.startDateTime.split('T')[1]?.substring(0, 5) || '';
+    const endTime = item.endDateTime.split('T')[1]?.substring(0, 5) || '';
+    setNewItemStart(startTime);
+    setNewItemEnd(endTime);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem || !newItemTitle.trim() || !newItemStart || !newItemEnd) return;
+
+    setIsAdding(true);
+    try {
+      const date = editingItem.startDateTime.split('T')[0];
+      await addItem({
+        dayPlanId: editingItem.dayPlanId,
+        type: editingItem.type,
+        title: newItemTitle.trim(),
+        startDateTime: `${date}T${newItemStart}:00`,
+        endDateTime: `${date}T${newItemEnd}:00`,
+      });
+      // Delete old item
+      await deleteItem(editingItem.id);
+      setShowEditModal(false);
+      setEditingItem(null);
+      resetAddForm();
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   const handleAddDay = async () => {
@@ -115,27 +150,6 @@ export function TimelineScreen({ navigation, route }: Props) {
     }
   };
 
-  const handleFillInBlanks = async () => {
-    if (!trip) return;
-    
-    setIsFillingBlanks(true);
-    try {
-      // Use local LLM to fill gaps in schedule for days with some activities
-      for (const day of days) {
-        if (day.items.length > 0) {
-          await replanLocal({
-            tripId,
-            dayPlanId: day.dayPlan.id,
-            instruction: `Suggest activities to fill gaps in the schedule for ${trip.destination || trip.name}`,
-          });
-        }
-      }
-      await refresh();
-    } finally {
-      setIsFillingBlanks(false);
-    }
-  };
-
   const handleDeleteItem = (item: TripItem) => {
     Alert.alert(
       'Delete Activity',
@@ -165,7 +179,6 @@ export function TimelineScreen({ navigation, route }: Props) {
 
   const totalActivities = allItems.length;
   const hasEmptyDays = days.some(d => d.items.length === 0);
-  const hasPartialDays = days.some(d => d.items.length > 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -261,10 +274,14 @@ export function TimelineScreen({ navigation, route }: Props) {
                         {formatTime(item.startDateTime)}
                       </Text>
                     </View>
-                    <View style={styles.itemContent}>
+                    <TouchableOpacity 
+                      style={styles.itemContent}
+                      onPress={() => handleEditItem(item)}
+                      activeOpacity={0.7}
+                    >
                       <Text style={styles.itemTitle}>{item.title}</Text>
                       <Text style={styles.itemType}>{item.type}</Text>
-                    </View>
+                    </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.deleteItemButton}
                       onPress={() => handleDeleteItem(item)}
@@ -329,21 +346,12 @@ export function TimelineScreen({ navigation, route }: Props) {
               <Text style={styles.generateButtonText}>GENERATE ITINERARY</Text>
             )}
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.fillBlanksButton,
-              (isFillingBlanks || !hasPartialDays || !modelStatus.isDownloaded) && styles.fillBlanksButtonDisabled
-            ]}
-            onPress={handleFillInBlanks}
-            disabled={isFillingBlanks || !hasPartialDays || !modelStatus.isDownloaded}
-          >
-            {isFillingBlanks ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.fillBlanksButtonText}>FILL IN BLANKS</Text>
-            )}
-          </TouchableOpacity>
+          
+          {!hasEmptyDays && totalActivities > 0 && (
+            <Text style={styles.aiHelperText}>
+              All days have activities. Use Trip Brain to get suggestions.
+            </Text>
+          )}
         </View>
 
         {/* Offline Mode Indicator */}
@@ -430,6 +438,73 @@ export function TimelineScreen({ navigation, route }: Props) {
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <Text style={styles.createButtonText}>Add</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Item Modal */}
+      <Modal visible={showEditModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Activity</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Activity Name</Text>
+              <TextInput
+                style={styles.input}
+                value={newItemTitle}
+                onChangeText={setNewItemTitle}
+                placeholder="e.g., Visit Temple"
+                placeholderTextColor="#999999"
+              />
+            </View>
+
+            <View style={styles.timeRow}>
+              <View style={styles.timeInput}>
+                <Text style={styles.label}>Start Time</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newItemStart}
+                  onChangeText={setNewItemStart}
+                  placeholder="09:00"
+                  placeholderTextColor="#999999"
+                />
+              </View>
+              <View style={styles.timeInput}>
+                <Text style={styles.label}>End Time</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newItemEnd}
+                  onChangeText={setNewItemEnd}
+                  placeholder="11:00"
+                  placeholderTextColor="#999999"
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowEditModal(false);
+                  setEditingItem(null);
+                  resetAddForm();
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.createButton, isAdding && styles.buttonDisabled]}
+                onPress={handleSaveEdit}
+                disabled={isAdding}
+              >
+                {isAdding ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.createButtonText}>Save</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -648,15 +723,13 @@ const styles = StyleSheet.create({
   deleteItemButton: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFE5E5',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
   },
   deleteItemIcon: {
-    fontSize: 24,
-    color: '#FF3B30',
+    fontSize: 28,
+    color: '#000000',
     fontWeight: '300',
   },
   addItemButton: {
@@ -726,20 +799,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  fillBlanksButton: {
-    backgroundColor: '#000000',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  fillBlanksButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  fillBlanksButtonDisabled: {
-    backgroundColor: '#CCCCCC',
+  aiHelperText: {
+    fontSize: 12,
+    color: '#666666',
+    textAlign: 'center',
+    marginTop: 8,
   },
   buttonDisabled: {
     opacity: 0.5,
