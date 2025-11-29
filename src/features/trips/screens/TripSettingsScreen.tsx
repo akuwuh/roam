@@ -1,6 +1,6 @@
 /**
  * Trip Settings Screen - Edit trip details
- * PRD Section 5.2 - Trip metadata editing
+ * Includes destination field per mockup
  */
 
 import React, { useState, useEffect } from 'react';
@@ -18,16 +18,12 @@ import {
   Keyboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../types';
 import type { Trip } from '../../../domain/models';
 import { useServices } from '../../../app/providers';
 
-type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'TripSettings'>;
-  route: RouteProp<RootStackParamList, 'TripSettings'>;
-};
+type Props = NativeStackScreenProps<RootStackParamList, 'TripSettings'>;
 
 export function TripSettingsScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
@@ -35,6 +31,7 @@ export function TripSettingsScreen({ navigation, route }: Props) {
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [name, setName] = useState('');
+  const [destination, setDestination] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [homeAirport, setHomeAirport] = useState('');
@@ -46,6 +43,7 @@ export function TripSettingsScreen({ navigation, route }: Props) {
       if (loaded) {
         setTrip(loaded);
         setName(loaded.name);
+        setDestination(loaded.destination ?? '');
         setStartDate(loaded.startDate);
         setEndDate(loaded.endDate);
         setHomeAirport(loaded.homeAirport ?? '');
@@ -63,6 +61,7 @@ export function TripSettingsScreen({ navigation, route }: Props) {
       const updated: Trip = {
         ...trip,
         name: name.trim(),
+        destination: destination.trim() || undefined,
         startDate,
         endDate,
         homeAirport: homeAirport.trim() || undefined,
@@ -86,7 +85,7 @@ export function TripSettingsScreen({ navigation, route }: Props) {
           style: 'destructive',
           onPress: async () => {
             await tripRepository.deleteTrip(tripId);
-            navigation.navigate('TripList');
+            navigation.navigate('MainTabs');
           },
         },
       ]
@@ -103,19 +102,20 @@ export function TripSettingsScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
+
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>TRIP SETTINGS</Text>
+        <View style={styles.placeholder} />
+      </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backButton}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Trip Settings</Text>
-        </View>
-
         <ScrollView
           style={styles.content}
           keyboardShouldPersistTaps="handled"
@@ -127,34 +127,47 @@ export function TripSettingsScreen({ navigation, route }: Props) {
               style={styles.input}
               value={name}
               onChangeText={setName}
-              placeholder="e.g., Tokyo Adventure"
+              placeholder="e.g., Summer Vacation"
               placeholderTextColor="#999999"
               returnKeyType="next"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Start Date</Text>
+            <Text style={styles.label}>Destination</Text>
             <TextInput
               style={styles.input}
-              value={startDate}
-              onChangeText={setStartDate}
-              placeholder="YYYY-MM-DD"
+              value={destination}
+              onChangeText={setDestination}
+              placeholder="e.g., Tokyo, Japan"
               placeholderTextColor="#999999"
               returnKeyType="next"
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>End Date</Text>
-            <TextInput
-              style={styles.input}
-              value={endDate}
-              onChangeText={setEndDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#999999"
-              returnKeyType="next"
-            />
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>Start Date</Text>
+              <TextInput
+                style={styles.input}
+                value={startDate}
+                onChangeText={setStartDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#999999"
+                returnKeyType="next"
+              />
+            </View>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>End Date</Text>
+              <TextInput
+                style={styles.input}
+                value={endDate}
+                onChangeText={setEndDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#999999"
+                returnKeyType="next"
+              />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -192,6 +205,8 @@ export function TripSettingsScreen({ navigation, route }: Props) {
           >
             <Text style={styles.deleteButtonText}>Delete Trip</Text>
           </TouchableOpacity>
+
+          <View style={styles.bottomPadding} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -207,28 +222,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#000000',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#000000',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   backButton: {
-    fontSize: 16,
-    color: '#000000',
-    marginBottom: 12,
+    padding: 8,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000000',
+  backIcon: {
+    fontSize: 20,
+    color: '#FFFFFF',
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  placeholder: {
+    width: 36,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 24,
   },
   inputGroup: {
     marginBottom: 20,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  halfInput: {
+    flex: 1,
   },
   label: {
     fontSize: 14,
@@ -277,12 +308,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#FF3B30',
-    marginBottom: 40,
   },
   deleteButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FF3B30',
   },
+  bottomPadding: {
+    height: 40,
+  },
 });
-

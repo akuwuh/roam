@@ -44,15 +44,34 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
     contextSize: 2048,
   });
 
-  // Auto-download model on first launch
+  // Auto-download and initialize model on first launch
   useEffect(() => {
-    if (!cactusLM.isDownloaded && !cactusLM.isDownloading) {
-      console.log('Auto-downloading AI model...');
-      cactusLM.download({
-        onProgress: (p: number) => console.log(`Model download: ${Math.round(p * 100)}%`),
-      });
+    async function setupModel() {
+      if (!cactusLM.isDownloaded && !cactusLM.isDownloading) {
+        console.log('Auto-downloading AI model...');
+        await cactusLM.download({
+          onProgress: (p: number) => console.log(`Model download: ${Math.round(p * 100)}%`),
+        });
+      }
     }
+    setupModel();
   }, [cactusLM.isDownloaded, cactusLM.isDownloading]);
+
+  // Initialize model after download completes
+  useEffect(() => {
+    async function initModel() {
+      if (cactusLM.isDownloaded && !cactusLM.isInitializing && cactusLM.init) {
+        console.log('Initializing AI model...');
+        try {
+          await cactusLM.init();
+          console.log('AI model initialized successfully');
+        } catch (err) {
+          console.error('Failed to initialize model:', err);
+        }
+      }
+    }
+    initModel();
+  }, [cactusLM.isDownloaded, cactusLM.isInitializing]);
 
   // Create services with memoization
   const services = useMemo<Services>(() => {

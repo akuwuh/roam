@@ -17,6 +17,7 @@ export interface UseTripsResult {
   refresh: () => Promise<void>;
   createNewTrip: (params: {
     name: string;
+    destination?: string;
     startDate: string;
     endDate: string;
     homeAirport?: string;
@@ -53,6 +54,7 @@ export function useTrips(): UseTripsResult {
   const createNewTrip = useCallback(
     async (params: {
       name: string;
+      destination?: string;
       startDate: string;
       endDate: string;
       homeAirport?: string;

@@ -1,9 +1,9 @@
 /**
  * Trip List Screen - Main screen showing all trips
- * PRD Section 5.1 - Screen 1: Trip List
+ * Matches mockup design with card-style trips
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,25 +21,68 @@ import {
   ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../types';
 import type { Trip } from '../../../domain/models';
 import { useTrips } from '../hooks/useTrips';
-import { useModelStatus } from '../../../infrastructure/cactus';
-import { ModelDownloadBanner, OfflineIndicator, EmptyState } from '../../../shared/components';
+import { useServices } from '../../../app/providers';
 
-type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'TripList'>;
-};
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-export function TripListScreen({ navigation }: Props) {
-  const { trips, isLoading, createNewTrip, deleteTrip } = useTrips();
-  const modelStatus = useModelStatus();
+interface TripWithStats extends Trip {
+  dayCount: number;
+  activityCount: number;
+}
+
+export function TripListScreen() {
+  const navigation = useNavigation<NavigationProp>();
+  const { trips, isLoading, createNewTrip } = useTrips();
+  const { tripRepository } = useServices();
+  const [tripsWithStats, setTripsWithStats] = useState<TripWithStats[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTripName, setNewTripName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  // Calculate stats for each trip
+  useEffect(() => {
+    async function loadStats() {
+      const withStats = await Promise.all(
+        trips.map(async (trip) => {
+          const dayPlans = await tripRepository.getDayPlans(trip.id);
+          let activityCount = 0;
+          for (const day of dayPlans) {
+            const items = await tripRepository.getTripItems(day.id);
+            activityCount += items.length;
+          }
+          return {
+            ...trip,
+            dayCount: dayPlans.length,
+            activityCount,
+          };
+        })
+      );
+      setTripsWithStats(withStats);
+    }
+    loadStats();
+  }, [trips, tripRepository]);
+
+  const formatDateRange = (start: string, end: string) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const startMonth = startDate.toLocaleDateString('en-US', { month: 'short' });
+    const endMonth = endDate.toLocaleDateString('en-US', { month: 'short' });
+    const startDay = startDate.getDate();
+    const endDay = endDate.getDate();
+    const year = startDate.getFullYear();
+
+    if (startMonth === endMonth) {
+      return `${startMonth} ${startDay}-${endDay}, ${year}`;
+    }
+    return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+  };
 
   const handleCreateTrip = async () => {
     if (!newTripName.trim() || !startDate || !endDate) return;
@@ -56,7 +99,7 @@ export function TripListScreen({ navigation }: Props) {
       setNewTripName('');
       setStartDate('');
       setEndDate('');
-      navigation.navigate('TripTabs', { tripId: trip.id });
+      navigation.navigate('TripDetail', { tripId: trip.id });
     } finally {
       setIsCreating(false);
     }
@@ -67,19 +110,29 @@ export function TripListScreen({ navigation }: Props) {
     setShowCreateModal(false);
   };
 
-  const renderTrip = ({ item }: { item: Trip }) => (
+  const renderTrip = ({ item }: { item: TripWithStats }) => (
     <TouchableOpacity
       style={styles.tripCard}
-      onPress={() => navigation.navigate('TripTabs', { tripId: item.id })}
+      onPress={() => navigation.navigate('TripDetail', { tripId: item.id })}
       activeOpacity={0.7}
     >
       <View style={styles.tripContent}>
-        <Text style={styles.tripName}>{item.name}</Text>
+        <View style={styles.tripHeader}>
+          <Text style={styles.tripName}>{item.name}</Text>
+          <View style={styles.dayBadge}>
+            <Text style={styles.dayBadgeText}>{item.dayCount} days</Text>
+          </View>
+        </View>
         <Text style={styles.tripDates}>
-          {item.startDate} → {item.endDate}
+          {formatDateRange(item.startDate, item.endDate)}
         </Text>
+        <View style={styles.activityBadge}>
+          <Text style={styles.activityBadgeText}>
+            {item.activityCount} activities
+          </Text>
+        </View>
       </View>
-      <Text style={styles.arrow}>→</Text>
+      <Text style={styles.arrow}>›</Text>
     </TouchableOpacity>
   );
 
@@ -87,46 +140,47 @@ export function TripListScreen({ navigation }: Props) {
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
 
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Roam</Text>
-          <OfflineIndicator />
-        </View>
+        <Text style={styles.title}>Trips</Text>
+        <TouchableOpacity style={styles.menuButton}>
+          <Text style={styles.menuIcon}>⋮</Text>
+        </TouchableOpacity>
       </View>
 
-      <ModelDownloadBanner
-        isDownloading={modelStatus.isDownloading}
-        downloadProgress={modelStatus.downloadProgress}
-        isDownloaded={modelStatus.isDownloaded}
-        onDownload={modelStatus.downloadModel}
-      />
-
-      <TouchableOpacity
-        style={styles.newButton}
-        onPress={() => setShowCreateModal(true)}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.newButtonText}>+ New Trip</Text>
-      </TouchableOpacity>
-
+      {/* Trip List */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#000000" />
         </View>
-      ) : trips.length > 0 ? (
+      ) : tripsWithStats.length > 0 ? (
         <FlatList
-          data={trips}
+          data={tripsWithStats}
           renderItem={renderTrip}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
         />
       ) : (
-        <EmptyState
-          icon="🗺️"
-          title="No trips yet"
-          subtitle="Create your first trip to get started"
-        />
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>🗺️</Text>
+          <Text style={styles.emptyTitle}>No trips yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Create your first trip to get started
+          </Text>
+        </View>
       )}
+
+      {/* New Trip Button */}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.newTripButton}
+          onPress={() => setShowCreateModal(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.newTripButtonText}>+ NEW TRIP</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Create Trip Modal */}
       <Modal visible={showCreateModal} animationType="slide" transparent>
@@ -139,7 +193,7 @@ export function TripListScreen({ navigation }: Props) {
               <View style={styles.modalBackdrop} />
             </TouchableWithoutFeedback>
             <View style={styles.modalContent}>
-              <ScrollView 
+              <ScrollView
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
@@ -216,66 +270,134 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#000000',
-  },
-  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '700',
     color: '#000000',
   },
-  newButton: {
-    margin: 16,
-    paddingVertical: 16,
-    backgroundColor: '#000000',
-    borderRadius: 8,
-    alignItems: 'center',
+  menuButton: {
+    padding: 8,
   },
-  newButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  menuIcon: {
+    fontSize: 20,
+    color: '#000000',
   },
   list: {
-    paddingHorizontal: 16,
+    padding: 16,
+    paddingBottom: 100,
   },
   tripCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
+    padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   tripContent: {
     flex: 1,
+  },
+  tripHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   tripName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#000000',
-    marginBottom: 4,
+    flex: 1,
+  },
+  dayBadge: {
+    backgroundColor: '#000000',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  dayBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   tripDates: {
     fontSize: 14,
     color: '#666666',
+    marginBottom: 8,
+  },
+  activityBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  activityBadgeText: {
+    fontSize: 12,
+    color: '#666666',
   },
   arrow: {
-    fontSize: 20,
-    color: '#666666',
+    fontSize: 24,
+    color: '#CCCCCC',
+    marginLeft: 12,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  newTripButton: {
+    backgroundColor: '#000000',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 8,
+  },
+  newTripButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,

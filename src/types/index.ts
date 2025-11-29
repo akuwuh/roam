@@ -2,23 +2,20 @@
  * Global type definitions
  */
 
-// Navigation types
+// Root stack navigation (wraps tabs + trip screens)
 export type RootStackParamList = {
-  TripList: undefined;
-  TripCreate: undefined;
-  TripTabs: { tripId: string };
-  Timeline: { tripId: string };
+  MainTabs: undefined;
+  TripDetail: { tripId: string };
   Chat: { tripId: string };
-  Planner: { tripId: string; dayPlanId?: string };
   TripSettings: { tripId: string };
-  AddItem: { tripId: string; dayPlanId: string };
 };
 
-// Tab navigation within a trip
-export type TripTabsParamList = {
-  Timeline: { tripId: string };
-  Chat: { tripId: string };
-  Settings: { tripId: string };
+// Global bottom tabs
+export type RootTabsParamList = {
+  Home: undefined;
+  Trips: undefined;
+  Explore: undefined;
+  Profile: undefined;
 };
 
 // Chat message types

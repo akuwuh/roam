@@ -1,14 +1,13 @@
 /**
- * Chat Screen - Trip Brain AI chat
- * PRD Section 5.3 - Screen 3: Chat / Trip Brain
+ * Chat Screen - Trip Assistant AI chat
+ * Matches mockup: dark header, bot avatar, structured responses
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   StyleSheet,
   SafeAreaView,
   FlatList,
@@ -18,22 +17,24 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../types';
 import { useTripBrain } from '../hooks/useTripBrain';
 import { ChatInput } from '../components/ChatInput';
 import { ChatMessageBubble } from '../components/ChatMessageBubble';
-import { OfflineIndicator, EmptyState } from '../../../shared/components';
+import { QuickActions } from '../components/QuickActions';
 
-type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'Chat'>;
-  route: RouteProp<RootStackParamList, 'Chat'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
+
+const WELCOME_MESSAGE = {
+  role: 'assistant' as const,
+  content: "Hi! I'm your trip assistant. I can help you with questions about your itinerary, suggest changes, and rearrange your schedule. What would you like to know?",
 };
 
 export function ChatScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
   const flatListRef = useRef<FlatList>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
   const {
     messages,
     isGenerating,
@@ -49,30 +50,27 @@ export function ChatScreen({ navigation, route }: Props) {
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messages.length > 0) {
+      setShowWelcome(false);
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
   }, [messages]);
 
+  const handleQuickAction = (action: string) => {
+    ask(action);
+  };
+
+  const displayMessages = showWelcome && messages.length === 0 
+    ? [WELCOME_MESSAGE] 
+    : messages;
+
   const renderMessage = ({ item, index }: { item: any; index: number }) => (
     <ChatMessageBubble
       role={item.role}
       content={item.content}
-      isStreaming={isGenerating && index === messages.length - 1 && item.role === 'assistant'}
+      isStreaming={isGenerating && index === displayMessages.length - 1 && item.role === 'assistant'}
     />
-  );
-
-  const renderEmptyState = () => (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={styles.emptyContainer}>
-        <EmptyState
-          icon="🧠"
-          title="Trip Brain"
-          subtitle="Ask me anything about your itinerary. I can help with questions, suggestions, and schedule changes."
-        />
-      </View>
-    </TouchableWithoutFeedback>
   );
 
   const renderDownloadState = () => (
@@ -107,15 +105,15 @@ export function ChatScreen({ navigation, route }: Props) {
   if (!isModelReady) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backButton}>← Back</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Trip Brain</Text>
-            <OfflineIndicator />
-          </View>
+          <Text style={styles.headerTitle}>Trip Assistant</Text>
+          <TouchableOpacity style={styles.menuButton}>
+            <Text style={styles.menuIcon}>⋮</Text>
+          </TouchableOpacity>
         </View>
         {renderDownloadState()}
       </SafeAreaView>
@@ -124,23 +122,17 @@ export function ChatScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
+      {/* Dark Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('TripList')}>
-          <Text style={styles.backButton}>← Trips</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Trip Brain</Text>
-          <View style={styles.headerRight}>
-            <OfflineIndicator compact />
-            {messages.length > 0 && (
-              <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
-                <Text style={styles.clearButtonText}>Clear</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+        <Text style={styles.headerTitle}>Trip Assistant</Text>
+        <TouchableOpacity style={styles.menuButton}>
+          <Text style={styles.menuIcon}>⋮</Text>
+        </TouchableOpacity>
       </View>
 
       {error && (
@@ -152,28 +144,27 @@ export function ChatScreen({ navigation, route }: Props) {
       <KeyboardAvoidingView
         style={styles.chatContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        keyboardVerticalOffset={0}
       >
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={displayMessages}
           renderItem={renderMessage}
           keyExtractor={(_, index) => index.toString()}
-          contentContainerStyle={[
-            styles.messageList,
-            messages.length === 0 && styles.messageListEmpty,
-          ]}
-          ListEmptyComponent={renderEmptyState}
+          contentContainerStyle={styles.messageList}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
-          onScrollBeginDrag={Keyboard.dismiss}
         />
 
+        {/* Quick Actions */}
+        <QuickActions onAction={handleQuickAction} />
+
+        {/* Chat Input */}
         <ChatInput
           onSend={ask}
           disabled={isGenerating}
-          placeholder={isGenerating ? 'Thinking...' : 'Ask about your trip...'}
+          placeholder={isGenerating ? 'Thinking...' : 'Ask about your itinerary...'}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -185,53 +176,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#000000',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  backButton: {
+    padding: 8,
+  },
+  backIcon: {
+    fontSize: 20,
+    color: '#FFFFFF',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  menuButton: {
+    padding: 8,
+  },
+  menuIcon: {
+    fontSize: 20,
+    color: '#FFFFFF',
+  },
   chatContainer: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#000000',
-  },
-  backButton: {
-    fontSize: 16,
-    color: '#000000',
-    marginBottom: 12,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000000',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  clearButtonText: {
-    fontSize: 14,
-    color: '#666666',
-  },
   messageList: {
     paddingVertical: 16,
-  },
-  messageListEmpty: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    paddingBottom: 8,
   },
   downloadContainer: {
     flex: 1,

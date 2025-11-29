@@ -41,9 +41,9 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get model status
+  // Get model status - model must be downloaded AND initialized (not initializing)
   const modelState = cactusService.getState();
-  const isModelReady = modelState.isDownloaded && !modelState.isDownloading;
+  const isModelReady = modelState.isDownloaded && !modelState.isDownloading && !modelState.isInitializing;
 
   // Load trip items for context
   const [tripItems, setTripItems] = useState<TripItem[]>([]);

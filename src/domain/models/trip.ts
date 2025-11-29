@@ -6,6 +6,7 @@
 export interface Trip {
   id: string;
   name: string;
+  destination?: string; // City/country
   startDate: string; // ISO date
   endDate: string; // ISO date
   homeAirport?: string;
@@ -45,6 +46,7 @@ export interface Place {
 // Factory functions for creating entities
 export function createTrip(params: {
   name: string;
+  destination?: string;
   startDate: string;
   endDate: string;
   homeAirport?: string;
@@ -53,6 +55,7 @@ export function createTrip(params: {
   return {
     id: `trip_${now}`,
     name: params.name,
+    destination: params.destination,
     startDate: params.startDate,
     endDate: params.endDate,
     homeAirport: params.homeAirport,

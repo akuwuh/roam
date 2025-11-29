@@ -15,6 +15,7 @@ export interface CactusCompletionOptions {
 export interface CactusServiceState {
   isDownloaded: boolean;
   isDownloading: boolean;
+  isInitializing: boolean;
   downloadProgress: number;
   isGenerating: boolean;
   error: string | null;
@@ -51,6 +52,7 @@ export class CactusServiceImpl implements CactusService {
     return {
       isDownloaded: this.cactusLM.isDownloaded ?? false,
       isDownloading: this.cactusLM.isDownloading ?? false,
+      isInitializing: this.cactusLM.isInitializing ?? false,
       downloadProgress: this.cactusLM.downloadProgress ?? 0,
       isGenerating: this.cactusLM.isGenerating ?? false,
       error: this.cactusLM.error ?? null,

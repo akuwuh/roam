@@ -9,6 +9,7 @@ import { useCactusLM } from 'cactus-react-native';
 export interface ModelStatus {
   isDownloaded: boolean;
   isDownloading: boolean;
+  isInitializing: boolean;
   downloadProgress: number;
   isReady: boolean;
   error: string | null;
@@ -25,7 +26,8 @@ export function useModelStatus(): UseModelStatusResult {
     contextSize: 2048, // Optimized for mobile
   });
 
-  const isReady = cactusLM.isDownloaded && !cactusLM.isDownloading;
+  // Model is ready when downloaded AND not initializing
+  const isReady = cactusLM.isDownloaded && !cactusLM.isDownloading && !cactusLM.isInitializing;
 
   const downloadModel = useCallback(async () => {
     try {
@@ -52,6 +54,7 @@ export function useModelStatus(): UseModelStatusResult {
   return {
     isDownloaded: cactusLM.isDownloaded ?? false,
     isDownloading: cactusLM.isDownloading ?? false,
+    isInitializing: cactusLM.isInitializing ?? false,
     downloadProgress: cactusLM.downloadProgress ?? 0,
     isReady,
     error,
