@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import type { Trip, DayPlan, TripItem } from '../../../domain/models';
-import { createTripItem } from '../../../domain/models';
+import { createTripItem, createDayPlan } from '../../../domain/models';
 import { useServices } from '../../../app/providers';
 
 export interface TimelineDay {
@@ -20,6 +20,7 @@ export interface UseTimelineResult {
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  addDay: () => Promise<DayPlan>;
   addItem: (params: {
     dayPlanId: string;
     type: TripItem['type'];
@@ -149,6 +150,52 @@ export function useTimeline(tripId: string): UseTimelineResult {
     [tripRepository, memoryStore, loadTimeline]
   );
 
+  const addDay = useCallback(async (): Promise<DayPlan> => {
+    if (!trip) {
+      throw new Error('Trip not loaded');
+    }
+
+    // Calculate new day number and date
+    const currentDayCount = days.length;
+    const newDayNumber = currentDayCount + 1;
+    
+    // Get the date for the new day
+    const lastDay = days[days.length - 1];
+    let newDate: string;
+    
+    if (lastDay) {
+      // Add one day to the last day's date
+      const lastDate = new Date(lastDay.dayPlan.date);
+      lastDate.setDate(lastDate.getDate() + 1);
+      newDate = lastDate.toISOString().split('T')[0];
+    } else {
+      // Use start date if no days exist
+      newDate = trip.startDate;
+    }
+
+    // Create the new day plan
+    const newDayPlan = createDayPlan({
+      tripId: trip.id,
+      date: newDate,
+      dayNumber: newDayNumber,
+    });
+
+    await tripRepository.saveDayPlan(newDayPlan);
+
+    // Update trip end date if needed
+    if (newDate > trip.endDate) {
+      const updatedTrip: Trip = {
+        ...trip,
+        endDate: newDate,
+        updatedAt: Date.now(),
+      };
+      await tripRepository.saveTrip(updatedTrip);
+    }
+
+    await loadTimeline();
+    return newDayPlan;
+  }, [trip, days, tripRepository, loadTimeline]);
+
   return {
     trip,
     days,
@@ -156,6 +203,7 @@ export function useTimeline(tripId: string): UseTimelineResult {
     isLoading,
     error,
     refresh: loadTimeline,
+    addDay,
     addItem,
     updateItem,
     deleteItem,

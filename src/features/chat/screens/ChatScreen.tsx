@@ -17,10 +17,11 @@ import { StatusBar } from 'expo-status-bar';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../types';
-import { useTripBrain } from '../hooks/useTripBrain';
+import { useTripBrain, type PendingAction } from '../hooks/useTripBrain';
 import { ChatInput } from '../components/ChatInput';
 import { ChatMessageBubble } from '../components/ChatMessageBubble';
-import { OfflineIndicator, EmptyState } from '../../../shared/components';
+import { EmptyState } from '../../../shared/components';
+import { useNetwork } from '../../../app/providers';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Chat'>;
@@ -29,6 +30,7 @@ type Props = {
 
 export function ChatScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
+  const { isOnline } = useNetwork();
   const flatListRef = useRef<FlatList>(null);
   const {
     messages,
@@ -37,9 +39,13 @@ export function ChatScreen({ navigation, route }: Props) {
     downloadProgress,
     isModelReady,
     error,
+    kbStatus,
+    pendingAction,
     ask,
     clearChat,
     downloadModel,
+    applyPendingAction,
+    dismissPendingAction,
   } = useTripBrain(tripId);
 
   // Auto-scroll to bottom when messages change
@@ -66,6 +72,51 @@ export function ChatScreen({ navigation, route }: Props) {
       subtitle="Ask me anything about your itinerary. I can help with questions, suggestions, and schedule changes."
     />
   );
+
+  const renderKBStatus = () => (
+    <View style={styles.kbStatusContainer}>
+      <View style={[
+        styles.kbStatusDot,
+        { backgroundColor: kbStatus.isSynced ? '#10B981' : '#FFA500' }
+      ]} />
+      <Text style={styles.kbStatusText}>
+        {kbStatus.isSynced 
+          ? `KB synced (${kbStatus.totalCount} items)` 
+          : 'KB not synced'}
+      </Text>
+      {isOnline && !kbStatus.isSynced && (
+        <Text style={styles.kbStatusHint}>Generate itinerary to sync</Text>
+      )}
+    </View>
+  );
+
+  const renderPendingAction = () => {
+    if (!pendingAction) return null;
+
+    return (
+      <View style={styles.actionContainer}>
+        <View style={styles.actionHeader}>
+          <Text style={styles.actionIcon}>📝</Text>
+          <Text style={styles.actionTitle}>Suggested Change</Text>
+        </View>
+        <Text style={styles.actionDescription}>{pendingAction.description}</Text>
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.dismissButton}
+            onPress={dismissPendingAction}
+          >
+            <Text style={styles.dismissButtonText}>Dismiss</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.applyButton}
+            onPress={applyPendingAction}
+          >
+            <Text style={styles.applyButtonText}>Apply Change</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   const renderDownloadState = () => (
     <View style={styles.downloadContainer}>
@@ -99,14 +150,18 @@ export function ChatScreen({ navigation, route }: Props) {
   if (!isModelReady) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backButton}>← Back</Text>
+            <Text style={styles.backButton}>←</Text>
           </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Trip Brain</Text>
-            <OfflineIndicator />
+          <Text style={styles.headerTitle}>TRIP BRAIN</Text>
+          <View style={styles.headerRight}>
+            <View style={[styles.statusBadge, isOnline ? styles.onlineBadge : styles.offlineBadge]}>
+              <Text style={styles.statusBadgeText}>
+                {isOnline ? 'ONLINE' : 'OFFLINE'}
+              </Text>
+            </View>
           </View>
         </View>
         {renderDownloadState()}
@@ -116,24 +171,28 @@ export function ChatScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Trip Brain</Text>
-          <View style={styles.headerRight}>
-            <OfflineIndicator compact />
-            {messages.length > 0 && (
-              <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
-                <Text style={styles.clearButtonText}>Clear</Text>
-              </TouchableOpacity>
-            )}
+        <Text style={styles.headerTitle}>TRIP BRAIN</Text>
+        <View style={styles.headerRight}>
+          <View style={[styles.statusBadge, isOnline ? styles.onlineBadge : styles.offlineBadge]}>
+            <Text style={styles.statusBadgeText}>
+              {isOnline ? 'ONLINE' : 'OFFLINE'}
+            </Text>
           </View>
+          {messages.length > 0 && (
+            <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
+              <Text style={styles.clearButtonText}>Clear</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
+
+      {renderKBStatus()}
 
       {error && (
         <View style={styles.errorBanner}>
@@ -154,11 +213,40 @@ export function ChatScreen({ navigation, route }: Props) {
         showsVerticalScrollIndicator={false}
       />
 
-      <ChatInput
-        onSend={ask}
-        disabled={isGenerating}
-        placeholder={isGenerating ? 'Thinking...' : 'Ask about your trip...'}
-      />
+      {renderPendingAction()}
+
+      <View style={styles.inputContainer}>
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => ask("What's on my schedule today?")}
+            disabled={isGenerating}
+          >
+            <Text style={styles.quickActionText}>Today's Schedule</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => ask("Do I have any free time?")}
+            disabled={isGenerating}
+          >
+            <Text style={styles.quickActionText}>Free Time?</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => ask("What should I know about this destination?")}
+            disabled={isGenerating}
+          >
+            <Text style={styles.quickActionText}>Tips</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ChatInput
+          onSend={ask}
+          disabled={isGenerating}
+          placeholder={isGenerating ? 'Thinking...' : 'Ask about your trip...'}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -169,38 +257,78 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#000000',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#000000',
   },
   backButton: {
-    fontSize: 16,
-    color: '#000000',
-    marginBottom: 12,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    fontSize: 24,
+    color: '#FFFFFF',
+    padding: 8,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#000000',
+    color: '#FFFFFF',
+    letterSpacing: 1,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  onlineBadge: {
+    backgroundColor: '#10B981',
+  },
+  offlineBadge: {
+    backgroundColor: '#666666',
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   clearButtonText: {
     fontSize: 14,
+    color: '#FFFFFF',
+  },
+  kbStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#F5F5F5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  kbStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  kbStatusText: {
+    fontSize: 12,
     color: '#666666',
+    fontWeight: '500',
+  },
+  kbStatusHint: {
+    fontSize: 12,
+    color: '#999999',
+    marginLeft: 8,
   },
   messageList: {
     paddingVertical: 16,
@@ -208,6 +336,89 @@ const styles = StyleSheet.create({
   messageListEmpty: {
     flex: 1,
     justifyContent: 'center',
+  },
+  actionContainer: {
+    backgroundColor: '#F0F8FF',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#0066CC',
+  },
+  actionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  actionIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0066CC',
+  },
+  actionDescription: {
+    fontSize: 14,
+    color: '#333333',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  dismissButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  dismissButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
+  },
+  applyButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 6,
+    backgroundColor: '#0066CC',
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  inputContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+    backgroundColor: '#FFFFFF',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 8,
+  },
+  quickActionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  quickActionText: {
+    fontSize: 12,
+    color: '#666666',
+    fontWeight: '500',
   },
   downloadContainer: {
     flex: 1,
@@ -273,4 +484,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

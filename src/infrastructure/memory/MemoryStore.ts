@@ -131,5 +131,58 @@ export class MemoryStore {
   async reindexItem(item: TripItem, place?: Place): Promise<MemoryChunk> {
     return this.indexItem(item, place);
   }
+
+  /**
+   * Index knowledge context for a trip
+   * Used when cloud planner generates contextual information
+   */
+  async indexKnowledge(
+    tripId: string,
+    knowledgeTexts: string[]
+  ): Promise<MemoryChunk[]> {
+    const chunks: MemoryChunk[] = [];
+
+    for (let i = 0; i < knowledgeTexts.length; i++) {
+      const text = knowledgeTexts[i];
+      if (!text.trim()) continue;
+
+      try {
+        const embedding = await this.cactusService.embed(text);
+        const chunk = createMemoryChunk({
+          tripId,
+          sourceId: `knowledge_${Date.now()}_${i}`,
+          sourceType: 'knowledge',
+          text,
+          embedding,
+        });
+
+        await this.memoryRepository.upsertBySource(chunk);
+        chunks.push(chunk);
+      } catch (err) {
+        console.warn('Failed to index knowledge chunk:', err);
+      }
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Get knowledge base status for a trip
+   */
+  async getKnowledgeBaseStatus(tripId: string): Promise<{
+    itemCount: number;
+    knowledgeCount: number;
+    totalCount: number;
+  }> {
+    const chunks = await this.memoryRepository.getChunks(tripId);
+    const itemCount = chunks.filter(c => c.sourceType === 'item').length;
+    const knowledgeCount = chunks.filter(c => c.sourceType === 'knowledge').length;
+    
+    return {
+      itemCount,
+      knowledgeCount,
+      totalCount: chunks.length,
+    };
+  }
 }
 

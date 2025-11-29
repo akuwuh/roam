@@ -6,6 +6,7 @@
 export type RootStackParamList = {
   TripList: undefined;
   TripCreate: undefined;
+  TripDetails: { tripId: string };
   Timeline: { tripId: string };
   Chat: { tripId: string };
   Planner: { tripId: string; dayPlanId?: string };

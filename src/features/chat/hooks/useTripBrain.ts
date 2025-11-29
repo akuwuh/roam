@@ -21,6 +21,23 @@ import {
 } from '../../../domain/services';
 import { getDurationMinutes } from '../../../domain/services';
 import { useServices } from '../../../app/providers';
+import { useNetwork } from '../../../app/providers';
+
+export interface PendingAction {
+  id: string;
+  type: 'reschedule' | 'add' | 'remove';
+  description: string;
+  targetItem?: TripItem;
+  newStartTime?: string;
+  newEndTime?: string;
+}
+
+export interface KBStatus {
+  itemCount: number;
+  knowledgeCount: number;
+  totalCount: number;
+  isSynced: boolean;
+}
 
 export interface UseTripBrainResult {
   messages: ChatMessage[];
@@ -29,17 +46,29 @@ export interface UseTripBrainResult {
   downloadProgress: number;
   isModelReady: boolean;
   error: string | null;
+  kbStatus: KBStatus;
+  pendingAction: PendingAction | null;
   ask: (question: string) => Promise<void>;
   clearChat: () => void;
   downloadModel: () => Promise<void>;
+  applyPendingAction: () => Promise<void>;
+  dismissPendingAction: () => void;
 }
 
 export function useTripBrain(tripId: string): UseTripBrainResult {
   const { cactusService, tripRepository, memoryStore, placeRepository } =
     useServices();
+  const { isOnline } = useNetwork();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [kbStatus, setKBStatus] = useState<KBStatus>({
+    itemCount: 0,
+    knowledgeCount: 0,
+    totalCount: 0,
+    isSynced: false,
+  });
 
   // Get model status
   const modelState = cactusService.getState();
@@ -56,9 +85,20 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
 
       const items = await tripRepository.getAllTripItems(tripId);
       setTripItems(items);
+
+      // Load KB status
+      try {
+        const status = await memoryStore.getKnowledgeBaseStatus(tripId);
+        setKBStatus({
+          ...status,
+          isSynced: status.totalCount > 0,
+        });
+      } catch (err) {
+        console.warn('Failed to get KB status:', err);
+      }
     }
     loadTripData();
-  }, [tripId, tripRepository]);
+  }, [tripId, tripRepository, memoryStore]);
 
   const ask = useCallback(
     async (question: string): Promise<void> => {
@@ -214,9 +254,75 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
       }
     );
 
-    // Note: Actual item update would happen here via useTimeline hook
-    // For now, we just provide the response
+    // Create a pending action for the user to approve
+    setPendingAction({
+      id: `action_${Date.now()}`,
+      type: 'reschedule',
+      description: `Move "${targetItem.title}" to ${slot.start} - ${slot.end}`,
+      targetItem,
+      newStartTime: slot.start,
+      newEndTime: slot.end,
+    });
   };
+
+  const applyPendingAction = useCallback(async () => {
+    if (!pendingAction || !pendingAction.targetItem) {
+      return;
+    }
+
+    try {
+      const { targetItem, newStartTime, newEndTime } = pendingAction;
+      
+      if (pendingAction.type === 'reschedule' && newStartTime && newEndTime) {
+        // Update the item with new times
+        const date = targetItem.startDateTime.split('T')[0];
+        const updatedItem: TripItem = {
+          ...targetItem,
+          startDateTime: `${date}T${newStartTime}:00`,
+          endDateTime: `${date}T${newEndTime}:00`,
+        };
+
+        await tripRepository.upsertTripItem(updatedItem);
+        
+        // Re-index in memory store
+        try {
+          await memoryStore.reindexItem(updatedItem);
+        } catch (err) {
+          console.warn('Failed to re-index item:', err);
+        }
+
+        // Reload items
+        const items = await tripRepository.getAllTripItems(tripId);
+        setTripItems(items);
+
+        // Add confirmation message
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `Done! I've moved "${targetItem.title}" to ${newStartTime} - ${newEndTime}.`,
+          },
+        ]);
+      }
+
+      setPendingAction(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to apply change');
+    }
+  }, [pendingAction, tripId, tripRepository, memoryStore]);
+
+  const dismissPendingAction = useCallback(() => {
+    if (pendingAction) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Okay, I won\'t make that change. Is there anything else I can help with?',
+        },
+      ]);
+      setPendingAction(null);
+    }
+  }, [pendingAction]);
 
   const clearChat = useCallback(() => {
     setMessages([]);
@@ -241,9 +347,13 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
     downloadProgress: modelState.downloadProgress,
     isModelReady,
     error,
+    kbStatus,
+    pendingAction,
     ask,
     clearChat,
     downloadModel,
+    applyPendingAction,
+    dismissPendingAction,
   };
 }
 

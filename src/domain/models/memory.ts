@@ -3,7 +3,7 @@
  * PRD Phase 1, Section 4.1 - Memory chunks for RAG
  */
 
-export type MemorySourceType = 'item' | 'day_summary';
+export type MemorySourceType = 'item' | 'day_summary' | 'knowledge';
 
 export interface MemoryChunk {
   id: string;

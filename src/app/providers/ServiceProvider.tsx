@@ -44,6 +44,27 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
     contextSize: 2048,
   });
 
+  // Auto-download model on first load
+  useEffect(() => {
+    const autoDownloadModel = async () => {
+      if (!cactusLM.isDownloaded && !cactusLM.isDownloading) {
+        console.log('Auto-downloading Cactus model...');
+        try {
+          await cactusLM.download({
+            onProgress: (progress: number) => {
+              console.log(`Model download progress: ${Math.round(progress * 100)}%`);
+            },
+          });
+          console.log('Cactus model downloaded successfully');
+        } catch (err) {
+          console.error('Failed to auto-download model:', err);
+        }
+      }
+    };
+
+    autoDownloadModel();
+  }, [cactusLM]);
+
   // Create services with memoization
   const services = useMemo<Services>(() => {
     // Storage repositories

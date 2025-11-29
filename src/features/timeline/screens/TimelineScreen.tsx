@@ -19,10 +19,9 @@ import { StatusBar } from 'expo-status-bar';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../types';
-import type { TripItem } from '../../../domain/models';
 import { useTimeline, type TimelineDay } from '../hooks/useTimeline';
 import { useHybridPlanner } from '../../planner/hooks/useHybridPlanner';
-import { OfflineIndicator, EmptyState } from '../../../shared/components';
+import { useModelStatus } from '../../../infrastructure/cactus';
 import { formatTime } from '../../../domain/services';
 
 type Props = {
@@ -30,10 +29,19 @@ type Props = {
   route: RouteProp<RootStackParamList, 'Timeline'>;
 };
 
+function calculateDuration(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  return diffDays;
+}
+
 export function TimelineScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
-  const { trip, days, isLoading, addItem, deleteItem } = useTimeline(tripId);
-  const { generatePlan, isGenerating: isPlanGenerating } = useHybridPlanner();
+  const { trip, days, allItems, isLoading, addItem, addDay, refresh } = useTimeline(tripId);
+  const { generatePlan, isGenerating: isPlanGenerating, replanLocal } = useHybridPlanner();
+  const modelStatus = useModelStatus();
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
@@ -41,6 +49,9 @@ export function TimelineScreen({ navigation, route }: Props) {
   const [newItemStart, setNewItemStart] = useState('');
   const [newItemEnd, setNewItemEnd] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [isAddingDay, setIsAddingDay] = useState(false);
+  const [isGeneratingFull, setIsGeneratingFull] = useState(false);
+  const [isFillingBlanks, setIsFillingBlanks] = useState(false);
 
   const handleAddItem = async () => {
     if (!selectedDayId || !newItemTitle.trim() || !newItemStart || !newItemEnd) return;
@@ -71,13 +82,56 @@ export function TimelineScreen({ navigation, route }: Props) {
     setSelectedDayId(null);
   };
 
-  const handleGeneratePlan = async (dayPlan: TimelineDay['dayPlan']) => {
-    await generatePlan({
-      tripId,
-      dayPlanId: dayPlan.id,
-      city: trip?.name ?? 'Destination',
-      date: dayPlan.date,
-    });
+  const handleAddDay = async () => {
+    setIsAddingDay(true);
+    try {
+      await addDay();
+    } finally {
+      setIsAddingDay(false);
+    }
+  };
+
+  const handleGenerateItinerary = async () => {
+    if (!trip) return;
+    
+    setIsGeneratingFull(true);
+    try {
+      // Generate plan for each empty day
+      for (const day of days) {
+        if (day.items.length === 0) {
+          await generatePlan({
+            tripId,
+            dayPlanId: day.dayPlan.id,
+            city: trip.destination || trip.name,
+            date: day.dayPlan.date,
+          });
+        }
+      }
+      await refresh();
+    } finally {
+      setIsGeneratingFull(false);
+    }
+  };
+
+  const handleFillInBlanks = async () => {
+    if (!trip) return;
+    
+    setIsFillingBlanks(true);
+    try {
+      // Use local LLM to fill gaps in schedule for days with some activities
+      for (const day of days) {
+        if (day.items.length > 0) {
+          await replanLocal({
+            tripId,
+            dayPlanId: day.dayPlan.id,
+            instruction: `Suggest activities to fill gaps in the schedule for ${trip.destination || trip.name}`,
+          });
+        }
+      }
+      await refresh();
+    } finally {
+      setIsFillingBlanks(false);
+    }
   };
 
   if (isLoading || !trip) {
@@ -90,59 +144,114 @@ export function TimelineScreen({ navigation, route }: Props) {
     );
   }
 
+  const totalActivities = allItems.length;
+  const hasEmptyDays = days.some(d => d.items.length === 0);
+  const hasPartialDays = days.some(d => d.items.length > 0);
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>{trip.name}</Text>
-          <OfflineIndicator compact />
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.backButton}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {trip.name === 'Untitled Trip' ? 'NEW TRIP' : trip.name.toUpperCase()}
+          </Text>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('TripDetails', { tripId })}
+            style={styles.settingsButton}
+          >
+            <Text style={styles.settingsIcon}>⚙</Text>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.subtitle}>
-          {trip.startDate} → {trip.endDate}
-        </Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Trip Info Card */}
+        <View style={styles.tripInfoCard}>
+          <View style={styles.tripInfoHeader}>
+            <Text style={styles.tripInfoName}>
+              {trip.name || 'UNTITLED TRIP'}
+            </Text>
+            <TouchableOpacity 
+              style={styles.editButton}
+              onPress={() => navigation.navigate('TripDetails', { tripId })}
+            >
+              <Text style={styles.editButtonText}>EDIT</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.tripInfoDates}>
+            {trip.startDate && trip.endDate 
+              ? `${trip.startDate} - ${trip.endDate}`
+              : 'No dates set'}
+          </Text>
+          <View style={styles.tripInfoStats}>
+            <View style={styles.tripInfoStat}>
+              <Text style={styles.tripInfoStatLabel}>DESTINATION</Text>
+              <Text style={styles.tripInfoStatValue}>
+                {trip.destination || 'Not set'}
+              </Text>
+            </View>
+            <View style={styles.tripInfoStat}>
+              <Text style={styles.tripInfoStatLabel}>DURATION</Text>
+              <Text style={styles.tripInfoStatValue}>
+                {trip.startDate && trip.endDate 
+                  ? `${calculateDuration(trip.startDate, trip.endDate)} days`
+                  : '0 days'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Itinerary Section Header */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>ITINERARY</Text>
+          <TouchableOpacity>
+            <Text style={styles.viewAllText}>VIEW ALL</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Empty State or Days */}
+        {totalActivities === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📅</Text>
+            <Text style={styles.emptyTitle}>NO PLANS YET</Text>
+            <Text style={styles.emptySubtitle}>
+              Start building your itinerary by adding trip details or let AI generate one for you
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Day Sections */}
         {days.map((day) => (
           <View key={day.dayPlan.id} style={styles.daySection}>
             <View style={styles.dayHeader}>
-              <Text style={styles.dayTitle}>Day {day.dayPlan.dayNumber}</Text>
-              <Text style={styles.dayDate}>{day.dayPlan.date}</Text>
+              <Text style={styles.dayTitle}>DAY {day.dayPlan.dayNumber}</Text>
             </View>
 
             {day.items.length > 0 ? (
-              day.items.map((item) => (
-                <View key={item.id} style={styles.itemRow}>
-                  <View style={styles.itemTime}>
-                    <Text style={styles.itemTimeText}>
-                      {formatTime(item.startDateTime)}
-                    </Text>
+              <View style={styles.dayContent}>
+                {day.items.map((item) => (
+                  <View key={item.id} style={styles.itemRow}>
+                    <View style={styles.itemTime}>
+                      <Text style={styles.itemTimeText}>
+                        {formatTime(item.startDateTime)}
+                      </Text>
+                    </View>
+                    <View style={styles.itemContent}>
+                      <Text style={styles.itemTitle}>{item.title}</Text>
+                      <Text style={styles.itemType}>{item.type}</Text>
+                    </View>
                   </View>
-                  <View style={styles.itemContent}>
-                    <Text style={styles.itemTitle}>{item.title}</Text>
-                    <Text style={styles.itemType}>{item.type}</Text>
-                  </View>
-                </View>
-              ))
+                ))}
+              </View>
             ) : (
-              <View style={styles.emptyDay}>
-                <Text style={styles.emptyDayText}>No activities yet</Text>
-                <TouchableOpacity
-                  style={styles.generateButton}
-                  onPress={() => handleGeneratePlan(day.dayPlan)}
-                  disabled={isPlanGenerating}
-                >
-                  {isPlanGenerating ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.generateButtonText}>Generate with AI</Text>
-                  )}
-                </TouchableOpacity>
+              <View style={styles.emptyDayContent}>
+                <Text style={styles.emptyDayText}>EMPTY</Text>
               </View>
             )}
 
@@ -157,15 +266,85 @@ export function TimelineScreen({ navigation, route }: Props) {
             </TouchableOpacity>
           </View>
         ))}
-      </ScrollView>
 
-      <TouchableOpacity
-        style={styles.chatButton}
-        onPress={() => navigation.navigate('Chat', { tripId })}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.chatButtonText}>Ask Trip Brain</Text>
-      </TouchableOpacity>
+        {/* Add Day Button */}
+        <TouchableOpacity
+          style={styles.addDayButton}
+          onPress={handleAddDay}
+          disabled={isAddingDay}
+        >
+          {isAddingDay ? (
+            <ActivityIndicator size="small" color="#666666" />
+          ) : (
+            <Text style={styles.addDayButtonText}>+ ADD DAY</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* AI Assistant Card */}
+        <View style={styles.aiCard}>
+          <View style={styles.aiCardHeader}>
+            <Text style={styles.aiCardIcon}>✨</Text>
+            <Text style={styles.aiCardTitle}>AI ASSISTANT</Text>
+          </View>
+          <Text style={styles.aiCardSubtitle}>
+            Let AI generate a personalized itinerary based on your preferences
+          </Text>
+          
+          <TouchableOpacity
+            style={[
+              styles.generateButton,
+              (isGeneratingFull || !hasEmptyDays) && styles.buttonDisabled
+            ]}
+            onPress={handleGenerateItinerary}
+            disabled={isGeneratingFull || !hasEmptyDays}
+          >
+            {isGeneratingFull ? (
+              <ActivityIndicator size="small" color="#000000" />
+            ) : (
+              <Text style={styles.generateButtonText}>GENERATE ITINERARY</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.fillBlanksButton,
+              (isFillingBlanks || !hasPartialDays || !modelStatus.isDownloaded) && styles.fillBlanksButtonDisabled
+            ]}
+            onPress={handleFillInBlanks}
+            disabled={isFillingBlanks || !hasPartialDays || !modelStatus.isDownloaded}
+          >
+            {isFillingBlanks ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.fillBlanksButtonText}>FILL IN BLANKS</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Offline Mode Indicator */}
+        {modelStatus.isDownloaded && (
+          <View style={styles.offlineIndicator}>
+            <Text style={styles.offlineIcon}>ℹ️</Text>
+            <View style={styles.offlineTextContainer}>
+              <Text style={styles.offlineTitle}>OFFLINE MODE AVAILABLE</Text>
+              <Text style={styles.offlineSubtitle}>
+                Download context data for offline AI assistance
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Chat Button */}
+        <TouchableOpacity
+          style={styles.chatButton}
+          onPress={() => navigation.navigate('Chat', { tripId })}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.chatButtonText}>💬 Ask Trip Brain</Text>
+        </TouchableOpacity>
+
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
 
       {/* Add Item Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent>
@@ -247,56 +426,169 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#000000',
+    backgroundColor: '#000000',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   backButton: {
-    fontSize: 16,
-    color: '#000000',
-    marginBottom: 12,
+    fontSize: 24,
+    color: '#FFFFFF',
+    padding: 8,
   },
-  headerRow: {
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  settingsButton: {
+    padding: 8,
+  },
+  settingsIcon: {
+    fontSize: 20,
+    color: '#FFFFFF',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  tripInfoCard: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+  },
+  tripInfoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  title: {
-    fontSize: 28,
+  tripInfoName: {
+    fontSize: 18,
     fontWeight: '700',
     color: '#000000',
+    flex: 1,
   },
-  subtitle: {
+  editButton: {
+    borderWidth: 1,
+    borderColor: '#000000',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  editButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#000000',
+    letterSpacing: 0.5,
+  },
+  tripInfoDates: {
     fontSize: 14,
     color: '#666666',
     marginTop: 4,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
+  tripInfoStats: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 32,
   },
-  daySection: {
-    marginBottom: 32,
+  tripInfoStat: {},
+  tripInfoStatLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#666666',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
-  dayHeader: {
+  tripInfoStatValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 24,
     marginBottom: 16,
-    paddingBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: 0.5,
+  },
+  viewAllText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666666',
+    letterSpacing: 0.5,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+  },
+  emptyIcon: {
+    fontSize: 40,
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  daySection: {
+    marginBottom: 16,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  dayHeader: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
   dayTitle: {
-    fontSize: 20,
+    fontSize: 14,
     fontWeight: '700',
     color: '#000000',
+    letterSpacing: 0.5,
   },
-  dayDate: {
+  dayContent: {
+    padding: 16,
+  },
+  emptyDayContent: {
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderStyle: 'dashed',
+    margin: 16,
+    borderRadius: 8,
+  },
+  emptyDayText: {
     fontSize: 14,
-    color: '#666666',
+    color: '#999999',
+    letterSpacing: 0.5,
   },
   itemRow: {
     flexDirection: 'row',
@@ -312,7 +604,7 @@ const styles = StyleSheet.create({
   },
   itemContent: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFFFFF',
     padding: 12,
     borderRadius: 8,
   },
@@ -327,51 +619,132 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: 'capitalize',
   },
-  emptyDay: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  emptyDayText: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 12,
-  },
-  generateButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  generateButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   addItemButton: {
-    marginTop: 8,
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
     alignItems: 'center',
-    borderStyle: 'dashed',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
   },
   addItemButtonText: {
     fontSize: 14,
     color: '#666666',
     fontWeight: '500',
   },
+  addDayButton: {
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  addDayButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
+    letterSpacing: 0.5,
+  },
+  aiCard: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+  },
+  aiCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiCardIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  aiCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: 0.5,
+  },
+  aiCardSubtitle: {
+    fontSize: 13,
+    color: '#666666',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  generateButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#000000',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  generateButtonText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  fillBlanksButton: {
+    backgroundColor: '#000000',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  fillBlanksButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  fillBlanksButtonDisabled: {
+    backgroundColor: '#CCCCCC',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  offlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#F0F8FF',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  offlineIcon: {
+    fontSize: 16,
+    marginRight: 12,
+  },
+  offlineTextContainer: {
+    flex: 1,
+  },
+  offlineTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  offlineSubtitle: {
+    fontSize: 12,
+    color: '#666666',
+  },
   chatButton: {
-    margin: 24,
     paddingVertical: 16,
     backgroundColor: '#000000',
     borderRadius: 8,
     alignItems: 'center',
+    marginBottom: 16,
   },
   chatButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  bottomSpacer: {
+    height: 32,
   },
   modalOverlay: {
     flex: 1,
@@ -408,7 +781,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: '#000000',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFFFFF',
   },
   timeRow: {
     flexDirection: 'row',
@@ -447,8 +820,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
 });
-

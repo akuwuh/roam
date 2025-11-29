@@ -7,7 +7,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
-import { TripListScreen } from '../../features/trips';
+import { TripListScreen, TripDetailsScreen } from '../../features/trips';
 import { TimelineScreen } from '../../features/timeline';
 import { ChatScreen } from '../../features/chat';
 
@@ -23,6 +23,7 @@ export function RootNavigator() {
         }}
       >
         <Stack.Screen name="TripList" component={TripListScreen} />
+        <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
         <Stack.Screen name="Timeline" component={TimelineScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
       </Stack.Navigator>

@@ -10,8 +10,13 @@ import { createTrip, createDayPlan } from '../../../domain/models';
 import { getDateRange } from '../../../domain/services';
 import { useServices } from '../../../app/providers';
 
+export interface TripWithStats extends Trip {
+  dayCount: number;
+  activityCount: number;
+}
+
 export interface UseTripsResult {
-  trips: Trip[];
+  trips: TripWithStats[];
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -26,7 +31,7 @@ export interface UseTripsResult {
 
 export function useTrips(): UseTripsResult {
   const { tripRepository, memoryStore } = useServices();
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [trips, setTrips] = useState<TripWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +40,21 @@ export function useTrips(): UseTripsResult {
       setIsLoading(true);
       setError(null);
       const loaded = await tripRepository.getTrips();
-      setTrips(loaded);
+      
+      // Load stats for each trip
+      const tripsWithStats: TripWithStats[] = await Promise.all(
+        loaded.map(async (trip) => {
+          const dayPlans = await tripRepository.getDayPlans(trip.id);
+          const items = await tripRepository.getAllTripItems(trip.id);
+          return {
+            ...trip,
+            dayCount: dayPlans.length,
+            activityCount: items.length,
+          };
+        })
+      );
+      
+      setTrips(tripsWithStats);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trips');
     } finally {
