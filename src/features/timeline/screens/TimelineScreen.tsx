@@ -337,6 +337,7 @@ export function TimelineScreen({ navigation, route }: Props) {
         </View>
       </View>
 
+      <View style={styles.contentWrapper}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Trip Info Card */}
         <View style={styles.tripInfoCard}>
@@ -556,6 +557,7 @@ export function TimelineScreen({ navigation, route }: Props) {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      </View>
 
       {/* Add Item Modal */}
       <Modal 
@@ -722,17 +724,22 @@ export function TimelineScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#000000',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     backgroundColor: '#000000',
     paddingHorizontal: 20,
     paddingVertical: 16,
+  },
+  contentWrapper: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   headerTop: {
     flexDirection: 'row',

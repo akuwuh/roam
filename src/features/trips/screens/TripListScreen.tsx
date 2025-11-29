@@ -246,7 +246,7 @@ export function TripListScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       <View style={styles.header}>
         <View style={styles.headerRow}>
@@ -254,45 +254,47 @@ export function TripListScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <ModelDownloadBanner
-        isDownloading={modelStatus.isDownloading}
-        downloadProgress={modelStatus.downloadProgress}
-        isDownloaded={modelStatus.isDownloaded}
-        onDownload={modelStatus.downloadModel}
-      />
-
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000000" />
-        </View>
-      ) : trips.length > 0 ? (
-        <FlatList
-          data={trips}
-          renderItem={renderTrip}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          onScrollBeginDrag={() => setShowMenuForTrip(null)}
+      <View style={styles.contentWrapper}>
+        <ModelDownloadBanner
+          isDownloading={modelStatus.isDownloading}
+          downloadProgress={modelStatus.downloadProgress}
+          isDownloaded={modelStatus.isDownloaded}
+          onDownload={modelStatus.downloadModel}
         />
-      ) : (
-        <EmptyState
-          icon="map-outline"
-          title="No trips yet"
-          subtitle="Create your first trip to get started"
-        />
-      )}
 
-      {/* New Trip Button */}
-      <TouchableOpacity
-        style={styles.newButton}
-        onPress={() => {
-          setShowStartDatePicker(true);
-          setShowEndDatePicker(false);
-          setShowCreateModal(true);
-        }}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.newButtonText}>+ NEW TRIP</Text>
-      </TouchableOpacity>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#000000" />
+          </View>
+        ) : trips.length > 0 ? (
+          <FlatList
+            data={trips}
+            renderItem={renderTrip}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.list}
+            onScrollBeginDrag={() => setShowMenuForTrip(null)}
+          />
+        ) : (
+          <EmptyState
+            icon="map-outline"
+            title="No trips yet"
+            subtitle="Create your first trip to get started"
+          />
+        )}
+
+        {/* New Trip Button */}
+        <TouchableOpacity
+          style={styles.newButton}
+          onPress={() => {
+            setShowStartDatePicker(true);
+            setShowEndDatePicker(false);
+            setShowCreateModal(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.newButtonText}>+ NEW TRIP</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Create Trip Modal */}
       <Modal 
@@ -456,6 +458,10 @@ export function TripListScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  contentWrapper: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
