@@ -826,7 +826,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 0, // Sharp
     marginRight: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -868,7 +868,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     marginVertical: 8,
-    borderRadius: 8,
+    borderRadius: 0,
     borderTopWidth: 0, // Removed border
   },
   addItemButtonText: {
@@ -880,7 +880,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    borderRadius: 8,
+    borderRadius: 0,
     alignItems: 'center',
     marginBottom: 24,
   },
@@ -996,8 +996,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     padding: 24,
     paddingBottom: 40,
   },
@@ -1019,7 +1019,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    borderRadius: 8,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
@@ -1041,7 +1041,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     paddingVertical: 16,
-    borderRadius: 8,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: '#E5E5E5',
     alignItems: 'center',
@@ -1055,7 +1055,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 16,
     backgroundColor: '#000000',
-    borderRadius: 8,
+    borderRadius: 0,
     alignItems: 'center',
   },
   createButtonText: {
