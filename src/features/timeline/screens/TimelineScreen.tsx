@@ -425,7 +425,9 @@ export function TimelineScreen({ navigation, route }: Props) {
         {/* AI Assistant Card */}
         <View style={styles.aiCard}>
           <View style={styles.aiCardHeader}>
-            <Ionicons name="sparkles" size={18} color="#FFFFFF" style={styles.aiCardIcon} />
+            <View style={styles.aiIconContainer}>
+              <Ionicons name="sparkles" size={16} color="#000000" />
+            </View>
             <Text style={styles.aiCardTitle}>AI ASSISTANT</Text>
           </View>
           <Text style={styles.aiCardSubtitle}>
@@ -466,7 +468,7 @@ export function TimelineScreen({ navigation, route }: Props) {
         {/* Offline Mode Indicator */}
         {modelStatus.isDownloaded && (
           <View style={styles.offlineIndicator}>
-            <Text style={styles.offlineIcon}>ℹ️</Text>
+            <Ionicons name="information-circle" size={24} color="#000000" style={styles.offlineIcon} />
             <View style={styles.offlineTextContainer}>
               <Text style={styles.offlineTitle}>OFFLINE MODE AVAILABLE</Text>
               <Text style={styles.offlineSubtitle}>
@@ -892,8 +894,8 @@ const styles = StyleSheet.create({
   },
   aiCard: {
     backgroundColor: '#000000',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 0,
+    padding: 24,
     marginBottom: 16,
   },
   aiCardHeader: {
@@ -901,64 +903,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  aiCardIcon: {
-    marginRight: 8,
+  aiIconContainer: {
+    width: 24,
+    height: 24,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   aiCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '400',
     color: '#FFFFFF',
     letterSpacing: 0.5,
   },
   aiCardSubtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#CCCCCC',
-    lineHeight: 18,
-    marginBottom: 16,
+    lineHeight: 20,
+    marginBottom: 24,
   },
   generateButton: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 0,
     alignItems: 'center',
     marginBottom: 12,
   },
   generateButtonText: {
     color: '#000000',
     fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   fillBlanksButton: {
     backgroundColor: '#000000',
     borderWidth: 1,
     borderColor: '#FFFFFF',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 0,
     alignItems: 'center',
   },
   fillBlanksButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   offlineIndicator: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F7FA',
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: '#E5E5E5',
+    borderColor: '#E1E4E8',
   },
   offlineIcon: {
-    fontSize: 16,
-    marginRight: 12,
+    marginRight: 16,
   },
   offlineTextContainer: {
     flex: 1,
@@ -969,6 +977,7 @@ const styles = StyleSheet.create({
     color: '#000000',
     letterSpacing: 0.5,
     marginBottom: 2,
+    textTransform: 'uppercase',
   },
   offlineSubtitle: {
     fontSize: 12,
