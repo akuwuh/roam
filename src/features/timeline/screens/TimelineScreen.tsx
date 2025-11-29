@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
   tripInfoCard: {
     backgroundColor: '#000000',
     padding: 24,
-    marginTop: 0,
+    marginTop: 24,
   },
   tripInfoHeader: {
     flexDirection: 'row',
