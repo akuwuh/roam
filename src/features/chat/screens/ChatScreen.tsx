@@ -263,7 +263,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#000000',
-    paddingTop: 60, // Status bar
   },
   backButton: {
     fontSize: 24,

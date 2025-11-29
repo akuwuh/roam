@@ -616,8 +616,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#000000',
     paddingHorizontal: 20,
-    paddingTop: 60, // Increased for status bar
-    paddingBottom: 20,
+    paddingVertical: 16,
   },
   headerTop: {
     flexDirection: 'row',
