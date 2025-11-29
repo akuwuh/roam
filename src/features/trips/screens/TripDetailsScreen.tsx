@@ -105,7 +105,7 @@ export function TripDetailsScreen({ navigation, route }: Props) {
   const formatDateForDisplay = (date: Date): string => {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
+      month: 'numeric',
       day: 'numeric',
     });
   };
@@ -517,4 +517,3 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 });
-
