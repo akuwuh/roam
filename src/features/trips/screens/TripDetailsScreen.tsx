@@ -13,8 +13,10 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../types';
@@ -44,8 +46,10 @@ export function TripDetailsScreen({ navigation, route }: Props) {
   // Form state
   const [name, setName] = useState('');
   const [destination, setDestination] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [budget, setBudget] = useState('');
   const [tripType, setTripType] = useState<TripType>('leisure');
   const [travelers, setTravelers] = useState(1);
@@ -59,8 +63,8 @@ export function TripDetailsScreen({ navigation, route }: Props) {
           setTrip(loadedTrip);
           setName(loadedTrip.name);
           setDestination(loadedTrip.destination ?? '');
-          setStartDate(loadedTrip.startDate);
-          setEndDate(loadedTrip.endDate);
+          setStartDate(new Date(loadedTrip.startDate));
+          setEndDate(new Date(loadedTrip.endDate));
           setBudget(loadedTrip.budget?.toString() ?? '');
           setTripType(loadedTrip.tripType);
           setTravelers(loadedTrip.travelers);
@@ -82,8 +86,8 @@ export function TripDetailsScreen({ navigation, route }: Props) {
         ...trip,
         name: name.trim() || 'Untitled Trip',
         destination: destination.trim() || undefined,
-        startDate,
-        endDate,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
         budget: budget ? parseFloat(budget) : undefined,
         tripType,
         travelers,
@@ -96,6 +100,14 @@ export function TripDetailsScreen({ navigation, route }: Props) {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const formatDateForDisplay = (date: Date): string => {
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   const incrementTravelers = () => setTravelers((prev) => prev + 1);
@@ -159,23 +171,55 @@ export function TripDetailsScreen({ navigation, route }: Props) {
           <View style={styles.dateRow}>
             <View style={styles.dateInput}>
               <Text style={styles.dateLabel}>START</Text>
-              <TextInput
-                style={styles.input}
-                value={startDate}
-                onChangeText={setStartDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#999999"
-              />
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowStartDatePicker(true)}
+              >
+                <Text style={styles.dateButtonText}>
+                  {formatDateForDisplay(startDate)}
+                </Text>
+              </TouchableOpacity>
+              {showStartDatePicker && (
+                <DateTimePicker
+                  value={startDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={(event, selectedDate) => {
+                    setShowStartDatePicker(false);
+                    if (selectedDate) {
+                      setStartDate(selectedDate);
+                      if (selectedDate > endDate) {
+                        setEndDate(selectedDate);
+                      }
+                    }
+                  }}
+                />
+              )}
             </View>
             <View style={styles.dateInput}>
               <Text style={styles.dateLabel}>END</Text>
-              <TextInput
-                style={styles.input}
-                value={endDate}
-                onChangeText={setEndDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#999999"
-              />
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowEndDatePicker(true)}
+              >
+                <Text style={styles.dateButtonText}>
+                  {formatDateForDisplay(endDate)}
+                </Text>
+              </TouchableOpacity>
+              {showEndDatePicker && (
+                <DateTimePicker
+                  value={endDate}
+                  mode="date"
+                  display="spinner"
+                  minimumDate={startDate}
+                  onChange={(event, selectedDate) => {
+                    setShowEndDatePicker(false);
+                    if (selectedDate) {
+                      setEndDate(selectedDate);
+                    }
+                  }}
+                />
+              )}
             </View>
           </View>
         </View>
@@ -359,8 +403,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: '#666666',
-    marginBottom: 4,
+    marginBottom: 8,
     letterSpacing: 0.5,
+  },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#000000',
   },
   currencyIcon: {
     fontSize: 16,

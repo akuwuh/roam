@@ -15,8 +15,12 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../types';
 import { useTrips, type TripWithStats } from '../hooks/useTrips';
@@ -51,28 +55,38 @@ export function TripListScreen({ navigation }: Props) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showMenuForTrip, setShowMenuForTrip] = useState<string | null>(null);
   const [newTripName, setNewTripName] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
   const handleCreateTrip = async () => {
-    if (!newTripName.trim() || !startDate || !endDate) return;
+    if (!newTripName.trim()) return;
 
     setIsCreating(true);
     try {
       const trip = await createNewTrip({
         name: newTripName.trim(),
-        startDate,
-        endDate,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
       });
       setShowCreateModal(false);
       setNewTripName('');
-      setStartDate('');
-      setEndDate('');
+      setStartDate(new Date());
+      setEndDate(new Date());
       navigation.navigate('Timeline', { tripId: trip.id });
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const formatDateForDisplay = (date: Date): string => {
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   const handleDeleteTrip = (tripId: string, tripName: string) => {
@@ -198,64 +212,112 @@ export function TripListScreen({ navigation }: Props) {
 
       {/* Create Trip Modal */}
       <Modal visible={showCreateModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity 
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowCreateModal(false)}
+          />
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>New Trip</Text>
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.modalTitle}>New Trip</Text>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Trip Name</Text>
-              <TextInput
-                style={styles.input}
-                value={newTripName}
-                onChangeText={setNewTripName}
-                placeholder="e.g., Tokyo Adventure"
-                placeholderTextColor="#999999"
-              />
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Trip Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newTripName}
+                  onChangeText={setNewTripName}
+                  placeholder="e.g., Tokyo Adventure"
+                  placeholderTextColor="#999999"
+                />
+              </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Start Date</Text>
-              <TextInput
-                style={styles.input}
-                value={startDate}
-                onChangeText={setStartDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#999999"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>End Date</Text>
-              <TextInput
-                style={styles.input}
-                value={endDate}
-                onChangeText={setEndDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#999999"
-              />
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setShowCreateModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.createButton, isCreating && styles.buttonDisabled]}
-                onPress={handleCreateTrip}
-                disabled={isCreating}
-              >
-                {isCreating ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.createButtonText}>Create</Text>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Start Date</Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowStartDatePicker(true)}
+                >
+                  <Text style={styles.dateButtonText}>
+                    {formatDateForDisplay(startDate)}
+                  </Text>
+                  <Text style={styles.calendarIcon}>📅</Text>
+                </TouchableOpacity>
+                {showStartDatePicker && (
+                  <DateTimePicker
+                    value={startDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={(event, selectedDate) => {
+                      setShowStartDatePicker(false);
+                      if (selectedDate) {
+                        setStartDate(selectedDate);
+                        // Auto-adjust end date if it's before start date
+                        if (selectedDate > endDate) {
+                          setEndDate(selectedDate);
+                        }
+                      }
+                    }}
+                  />
                 )}
-              </TouchableOpacity>
-            </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>End Date</Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowEndDatePicker(true)}
+                >
+                  <Text style={styles.dateButtonText}>
+                    {formatDateForDisplay(endDate)}
+                  </Text>
+                  <Text style={styles.calendarIcon}>📅</Text>
+                </TouchableOpacity>
+                {showEndDatePicker && (
+                  <DateTimePicker
+                    value={endDate}
+                    mode="date"
+                    display="spinner"
+                    minimumDate={startDate}
+                    onChange={(event, selectedDate) => {
+                      setShowEndDatePicker(false);
+                      if (selectedDate) {
+                        setEndDate(selectedDate);
+                      }
+                    }}
+                  />
+                )}
+              </View>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setShowCreateModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.createButton, isCreating && styles.buttonDisabled]}
+                  onPress={handleCreateTrip}
+                  disabled={isCreating}
+                >
+                  {isCreating ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.createButtonText}>Create</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -414,8 +476,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
@@ -423,6 +488,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 24,
@@ -448,6 +514,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000000',
     backgroundColor: '#FFFFFF',
+  },
+  dateButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#000000',
+  },
+  calendarIcon: {
+    fontSize: 18,
   },
   modalButtons: {
     flexDirection: 'row',
