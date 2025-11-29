@@ -1,10 +1,12 @@
 /**
  * Chat Message Bubble Component
  * Shows bot avatar, user messages, and parses structured responses
+ * Renders markdown for assistant messages
  */
 
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 
 export interface ChatMessageBubbleProps {
   role: 'user' | 'assistant' | 'system';
@@ -108,10 +110,18 @@ export function ChatMessageBubble({
         {/* Text Bubble */}
         {parsed.text ? (
           <View style={[styles.bubble, isUser ? styles.userBubble : styles.assistantBubble]}>
-            <Text style={[styles.content, isUser ? styles.userContent : styles.assistantContent]}>
-              {parsed.text}
-              {isStreaming && <Text style={styles.cursor}>▊</Text>}
-            </Text>
+            {isUser ? (
+              <Text style={[styles.content, styles.userContent]}>
+                {parsed.text}
+              </Text>
+            ) : (
+              <View style={styles.markdownContainer}>
+                <Markdown style={markdownStyles}>
+                  {parsed.text}
+                </Markdown>
+                {isStreaming && <Text style={styles.cursor}>▊</Text>}
+              </View>
+            )}
           </View>
         ) : null}
 
@@ -209,12 +219,119 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontWeight: '500',
   },
+  markdownContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-end',
+  },
   cursor: {
     color: '#000000',
+    fontSize: 15,
+    marginLeft: 2,
   },
   cardsContainer: {
     marginTop: 12,
     gap: 10,
+  },
+});
+
+// Markdown styles for assistant messages
+const markdownStyles = StyleSheet.create({
+  body: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#000000',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  heading1: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  heading2: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  heading3: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  paragraph: {
+    marginBottom: 8,
+    marginTop: 0,
+  },
+  strong: {
+    fontWeight: '700',
+  },
+  em: {
+    fontStyle: 'italic',
+  },
+  bullet_list: {
+    marginBottom: 8,
+  },
+  ordered_list: {
+    marginBottom: 8,
+  },
+  list_item: {
+    marginBottom: 4,
+    flexDirection: 'row',
+  },
+  bullet_list_icon: {
+    marginRight: 8,
+    fontSize: 15,
+    color: '#000000',
+  },
+  ordered_list_icon: {
+    marginRight: 8,
+    fontSize: 15,
+    color: '#000000',
+    fontWeight: '700',
+  },
+  code_inline: {
+    backgroundColor: '#E5E5E5',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 14,
+  },
+  code_block: {
+    backgroundColor: '#E5E5E5',
+    padding: 12,
+    marginVertical: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 14,
+  },
+  fence: {
+    backgroundColor: '#E5E5E5',
+    padding: 12,
+    marginVertical: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 14,
+  },
+  blockquote: {
+    backgroundColor: '#F0F0F0',
+    borderLeftWidth: 3,
+    borderLeftColor: '#000000',
+    paddingLeft: 12,
+    paddingVertical: 4,
+    marginVertical: 8,
+  },
+  hr: {
+    backgroundColor: '#000000',
+    height: 2,
+    marginVertical: 12,
+  },
+  link: {
+    color: '#000000',
+    textDecorationLine: 'underline',
   },
 });
 

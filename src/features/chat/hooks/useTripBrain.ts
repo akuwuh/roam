@@ -205,13 +205,20 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
     console.log('  - System prompt length:', systemPrompt.length);
     console.log('  - System prompt preview:', systemPrompt.substring(0, 300));
 
-    // Include itinerary context with clear instructions
+    // Include itinerary context with clear instructions and guardrails for brevity
     const itineraryContext = context.length > 0 
-      ? `You are my travel assistant. I have this itinerary for my Tokyo trip:
+      ? `You are a concise travel assistant. Keep responses SHORT (2-3 sentences max).
 
+ITINERARY:
 ${context}
 
-Based on this itinerary, please answer: ${question}`
+RULES:
+- Be brief and direct
+- Use bullet points for lists
+- No lengthy explanations
+- Answer only what was asked
+
+Question: ${question}`
       : question;
     
     const conversationHistory: ChatMessage[] = [
