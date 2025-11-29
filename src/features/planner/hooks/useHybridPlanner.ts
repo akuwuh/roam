@@ -113,34 +113,9 @@ export function useHybridPlanner(): UseHybridPlannerResult {
     await tripRepository.upsertTripItems(response.items);
     console.log(`Saved ${response.items.length} items to repository for day ${params.dayPlanId}`);
 
-    // Index items in memory store for RAG (only if model is downloaded)
-    const modelState = cactusService.getState();
-    if (modelState.isDownloaded) {
-      for (const item of response.items) {
-        try {
-          const place = item.placeId
-            ? await placeRepository.getPlace(item.placeId)
-            : undefined;
-          await memoryStore.indexItem(item, place ?? undefined);
-        } catch (err) {
-          console.warn('Failed to index item:', err);
-        }
-      }
-    } else {
-      console.log('Skipping item indexing - Cactus model not downloaded');
-    }
-
-    // Auto-index knowledge context for offline RAG (only if model is downloaded and we fetched it)
-    if (modelState.isDownloaded && response.knowledgeContext && response.knowledgeContext.length > 0) {
-      try {
-        await memoryStore.indexKnowledge(params.tripId, response.knowledgeContext);
-        console.log(`Indexed ${response.knowledgeContext.length} knowledge chunks for trip ${params.tripId}`);
-      } catch (err) {
-        console.warn('Failed to index knowledge context:', err);
-      }
-    } else if (!modelState.isDownloaded && response.knowledgeContext && response.knowledgeContext.length > 0) {
-      console.log(`Received ${response.knowledgeContext.length} knowledge chunks but skipping indexing - model not downloaded`);
-    }
+    // NOTE: Skipping embedding-based indexing - we use direct context for chat now
+    // This avoids conflicts with multiple Cactus hook instances
+    console.log('📝 Itinerary saved. Skipping embedding indexing (using direct context for chat).');
 
     return response.items;
   };

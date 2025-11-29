@@ -112,15 +112,7 @@ export function useTimeline(tripId: string): UseTimelineResult {
 
       await tripRepository.upsertTripItem(item);
 
-      // Index in memory store for RAG
-      try {
-        const place = params.placeId
-          ? await placeRepository.getPlace(params.placeId)
-          : undefined;
-        await memoryStore.indexItem(item, place ?? undefined);
-      } catch (err) {
-        console.warn('Failed to index item in memory store:', err);
-      }
+      // NOTE: Skipping embedding indexing - using direct context for chat now
 
       await loadTimeline();
       return item;
@@ -132,15 +124,7 @@ export function useTimeline(tripId: string): UseTimelineResult {
     async (item: TripItem): Promise<void> => {
       await tripRepository.upsertTripItem(item);
 
-      // Re-index in memory store
-      try {
-        const place = item.placeId
-          ? await placeRepository.getPlace(item.placeId)
-          : undefined;
-        await memoryStore.reindexItem(item, place ?? undefined);
-      } catch (err) {
-        console.warn('Failed to re-index item in memory store:', err);
-      }
+      // NOTE: Skipping embedding indexing - using direct context for chat now
 
       await loadTimeline();
     },

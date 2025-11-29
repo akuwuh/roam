@@ -412,12 +412,7 @@ Based on this itinerary, please answer: ${question}`
 
         await tripRepository.upsertTripItem(updatedItem);
         
-        // Re-index in memory store
-        try {
-          await memoryStore.reindexItem(updatedItem);
-        } catch (err) {
-          console.warn('Failed to re-index item:', err);
-        }
+        // NOTE: Skipping embedding indexing - using direct context for chat now
 
         // Reload items
         const items = await tripRepository.getAllTripItems(tripId);

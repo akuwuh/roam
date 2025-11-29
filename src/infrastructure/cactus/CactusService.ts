@@ -19,6 +19,8 @@ export interface CactusCompletionOptions {
 export interface CactusServiceState {
   isDownloaded: boolean;
   isDownloading: boolean;
+  isInitializing: boolean;
+  isReady: boolean; // Downloaded AND initialized (ready for inference)
   downloadProgress: number;
   isGenerating: boolean;
   error: string | null;
@@ -46,15 +48,25 @@ export interface CactusService {
  */
 export class CactusServiceImpl implements CactusService {
   private cactusLM: any; // The useCactusLM hook result
+  private _isModelInitialized: boolean; // Explicit init tracking from provider
 
-  constructor(cactusLM: any) {
+  constructor(cactusLM: any, isModelInitialized: boolean = false) {
     this.cactusLM = cactusLM;
+    this._isModelInitialized = isModelInitialized;
   }
 
   getState(): CactusServiceState {
+    const isDownloaded = this.cactusLM.isDownloaded ?? false;
+    const isDownloading = this.cactusLM.isDownloading ?? false;
+    const isInitializing = this.cactusLM.isInitializing ?? false;
+    // Model is ready when downloaded, not downloading, not initializing, AND explicitly initialized
+    const isReady = isDownloaded && !isDownloading && !isInitializing && this._isModelInitialized;
+    
     return {
-      isDownloaded: this.cactusLM.isDownloaded ?? false,
-      isDownloading: this.cactusLM.isDownloading ?? false,
+      isDownloaded,
+      isDownloading,
+      isInitializing,
+      isReady,
       downloadProgress: this.cactusLM.downloadProgress ?? 0,
       isGenerating: this.cactusLM.isGenerating ?? false,
       error: this.cactusLM.error ?? null,
@@ -76,6 +88,17 @@ export class CactusServiceImpl implements CactusService {
   }
 
   async embed(text: string): Promise<number[]> {
+    // Check if model is ready before attempting embed
+    const state = this.getState();
+    if (!state.isReady) {
+      const reason = !state.isDownloaded 
+        ? 'not downloaded' 
+        : state.isInitializing 
+          ? 'still initializing' 
+          : 'not ready';
+      throw new Error(`Cactus model is not initialized (${reason})`);
+    }
+    
     if (!this.cactusLM.embed) {
       throw new Error('Embed function not available on Cactus LM');
     }

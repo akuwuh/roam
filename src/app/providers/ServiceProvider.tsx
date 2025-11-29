@@ -3,7 +3,7 @@
  * PRD Section 6.1 - Allows test mocks
  */
 
-import React, { createContext, useContext, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useMemo, useEffect, useState, useRef } from 'react';
 import { useCactusLM } from 'cactus-react-native';
 import {
   TripRepository,
@@ -47,6 +47,10 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
     model: 'gemma3-1b',
     contextSize: 4096,
   });
+
+  // Track initialization state explicitly
+  const [isModelInitialized, setIsModelInitialized] = useState(false);
+  const initAttemptedRef = useRef(false);
 
   // Only log once when instance changes
   useEffect(() => {
@@ -104,19 +108,25 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
   // Initialize model after download (loads into memory for inference)
   useEffect(() => {
     const initModel = async () => {
+      // Prevent multiple init attempts
+      if (initAttemptedRef.current) return;
+      
       console.log('🔧 Model Status Check:', {
         isDownloaded: cactusLM.isDownloaded,
         isDownloading: cactusLM.isDownloading,
         isInitializing: cactusLM.isInitializing,
+        isModelInitialized,
         hasInit: !!cactusLM.init,
         hasEmbed: !!cactusLM.embed,
         hasComplete: !!cactusLM.complete,
       });
 
-      if (cactusLM.isDownloaded && !cactusLM.isInitializing && cactusLM.init) {
+      if (cactusLM.isDownloaded && !cactusLM.isInitializing && !isModelInitialized && cactusLM.init) {
+        initAttemptedRef.current = true;
         console.log('🚀 Initializing Cactus model...');
         try {
           await cactusLM.init();
+          setIsModelInitialized(true);
           console.log('✅ Cactus model initialized - ready for inference!');
           console.log('📊 Model info:', {
             modelName: cactusLM.modelName || 'Unknown',
@@ -124,12 +134,13 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
           });
         } catch (err) {
           console.error('❌ Failed to initialize model:', err);
+          initAttemptedRef.current = false; // Allow retry on failure
         }
       }
     };
 
     initModel();
-  }, [cactusLM.isDownloaded, cactusLM.isInitializing]);
+  }, [cactusLM.isDownloaded, cactusLM.isInitializing, isModelInitialized]);
 
   // Create services with memoization
   const services = useMemo<Services>(() => {
@@ -138,8 +149,8 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
     const placeRepository = new PlaceRepository(asyncStorageAdapter);
     const memoryRepository = new MemoryRepository(asyncStorageAdapter);
 
-    // Cactus service
-    const cactusService = new CactusServiceImpl(cactusLM);
+    // Cactus service - pass initialization state
+    const cactusService = new CactusServiceImpl(cactusLM, isModelInitialized);
 
     // Memory store (depends on memory repository and cactus service)
     const memoryStore = new MemoryStore(memoryRepository, cactusService);
@@ -155,7 +166,7 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
       memoryStore,
       cloudPlannerApi,
     };
-  }, [cactusLM]);
+  }, [cactusLM, isModelInitialized]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -27,7 +27,7 @@ export async function runCactusDiagnostics(
     // Check model state
     const state = cactusService.getState();
     result.modelDownloaded = state.isDownloaded;
-    result.modelInitialized = state.isDownloaded && !state.isDownloading;
+    result.modelInitialized = state.isReady;
 
     // Test embedding
     if (result.modelInitialized) {

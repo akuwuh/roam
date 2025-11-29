@@ -33,10 +33,10 @@ export class MemoryStore {
       throw new Error('Cannot embed empty text for trip item');
     }
 
-    // Check if model is ready
+    // Check if model is ready (downloaded AND initialized)
     const modelState = this.cactusService.getState();
-    if (!modelState.isDownloaded) {
-      throw new Error('Cactus model not downloaded - cannot create embeddings');
+    if (!modelState.isReady) {
+      throw new Error('Cactus model not ready - cannot create embeddings');
     }
 
     const embedding = await this.cactusService.embed(text.trim());
@@ -90,8 +90,8 @@ export class MemoryStore {
 
     // Check if model is ready
     const modelState = this.cactusService.getState();
-    if (!modelState.isDownloaded) {
-      console.warn('Cannot search - Cactus model not downloaded');
+    if (!modelState.isReady) {
+      console.warn('Cannot search - Cactus model not ready');
       return [];
     }
 
@@ -169,8 +169,8 @@ export class MemoryStore {
 
     // Check if model is ready before attempting to embed
     const modelState = this.cactusService.getState();
-    if (!modelState.isDownloaded) {
-      console.log('Skipping knowledge indexing - Cactus model not downloaded');
+    if (!modelState.isReady) {
+      console.log('Skipping knowledge indexing - Cactus model not ready');
       return chunks;
     }
 
