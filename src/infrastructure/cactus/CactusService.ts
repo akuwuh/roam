@@ -75,7 +75,8 @@ export class CactusServiceImpl implements CactusService {
     if (!this.cactusLM.embed) {
       throw new Error('Embed function not available on Cactus LM');
     }
-    const result = await this.cactusLM.embed(text);
+    // Cactus SDK expects { text: string } object per docs
+    const result = await this.cactusLM.embed({ text });
     return result.embedding ?? result;
   }
 
@@ -83,20 +84,28 @@ export class CactusServiceImpl implements CactusService {
     messages: ChatMessage[],
     options?: CactusCompletionOptions
   ): Promise<CompletionResult> {
-    const result = await this.cactusLM.complete({
+    // Build completion params per Cactus SDK docs
+    const completionParams: any = {
       messages: messages.map((m) => ({
         role: m.role,
         content: m.content,
       })),
-      mode: options?.mode ?? 'local',
-      onToken: options?.onToken,
-      maxTokens: options?.maxTokens,
-    });
+    };
+
+    // Add optional parameters only if defined
+    if (options?.mode) {
+      completionParams.mode = options.mode;
+    }
+    if (options?.onToken) {
+      completionParams.onToken = options.onToken;
+    }
+
+    const result = await this.cactusLM.complete(completionParams);
 
     return {
-      response: result.response ?? '',
-      totalTokens: result.totalTokens,
-      tokensPerSecond: result.tokensPerSecond,
+      response: result?.response ?? this.cactusLM.completion ?? '',
+      totalTokens: result?.totalTokens,
+      tokensPerSecond: result?.tokensPerSecond,
     };
   }
 }

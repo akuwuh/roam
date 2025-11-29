@@ -6,9 +6,19 @@
 export type RootStackParamList = {
   TripList: undefined;
   TripCreate: undefined;
+  TripTabs: { tripId: string };
   Timeline: { tripId: string };
   Chat: { tripId: string };
   Planner: { tripId: string; dayPlanId?: string };
+  TripSettings: { tripId: string };
+  AddItem: { tripId: string; dayPlanId: string };
+};
+
+// Tab navigation within a trip
+export type TripTabsParamList = {
+  Timeline: { tripId: string };
+  Chat: { tripId: string };
+  Settings: { tripId: string };
 };
 
 // Chat message types
