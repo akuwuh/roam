@@ -92,6 +92,8 @@ export function TripListScreen({ navigation }: Props) {
         useNativeDriver: true,
       }).start(() => {
         setModalVisible(false);
+        setShowStartDatePicker(false);
+        setShowEndDatePicker(false);
       });
     }
   }, [showCreateModal]);
@@ -113,6 +115,9 @@ export function TripListScreen({ navigation }: Props) {
         endDate: endDate.toISOString().split('T')[0],
       });
       setShowCreateModal(false);
+      // Delay resetting form values slightly to allow animation to start/finish or just let it be
+      // Since we're navigating away, the modal will close. 
+      // We rely on the useEffect cleanup for layout resets, but form values can be reset here.
       setNewTripName('');
       setStartDate(new Date());
       setEndDate(new Date());
@@ -247,7 +252,11 @@ export function TripListScreen({ navigation }: Props) {
       {/* New Trip Button */}
       <TouchableOpacity
         style={styles.newButton}
-        onPress={() => setShowCreateModal(true)}
+        onPress={() => {
+          setShowStartDatePicker(true);
+          setShowEndDatePicker(false);
+          setShowCreateModal(true);
+        }}
         activeOpacity={0.8}
       >
         <Text style={styles.newButtonText}>+ NEW TRIP</Text>
