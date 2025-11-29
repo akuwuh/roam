@@ -205,9 +205,13 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
     console.log('  - System prompt length:', systemPrompt.length);
     console.log('  - System prompt preview:', systemPrompt.substring(0, 300));
 
-    // Include itinerary context in the user message
+    // Include itinerary context with clear instructions
     const itineraryContext = context.length > 0 
-      ? `Here is my trip itinerary:\n${context}\n\nQuestion: ${question}`
+      ? `You are my travel assistant. I have this itinerary for my Tokyo trip:
+
+${context}
+
+Based on this itinerary, please answer: ${question}`
       : question;
     
     const conversationHistory: ChatMessage[] = [
@@ -228,8 +232,9 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
         content: m.content,
       })),
       options: {
-        maxTokens: 512,
+        maxTokens: 256,
         temperature: 0.7,
+        stopSequences: ['<end_of_turn>', '\n\n---', 'Ronny', 'rappie'], // Stop at end tokens
       },
       onToken: (token: string) => {
         // Skip special tokens

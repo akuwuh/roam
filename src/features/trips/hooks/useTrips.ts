@@ -9,6 +9,7 @@ import type { Trip, DayPlan } from '../../../domain/models';
 import { createTrip, createDayPlan } from '../../../domain/models';
 import { getDateRange } from '../../../domain/services';
 import { useServices } from '../../../app/providers';
+import type { CactusService } from '../../../infrastructure/cactus';
 
 export interface TripWithStats extends Trip {
   dayCount: number;
@@ -25,12 +26,71 @@ export interface UseTripsResult {
     startDate: string;
     endDate: string;
     homeAirport?: string;
+    destination?: string;
   }) => Promise<Trip>;
   deleteTrip: (tripId: string) => Promise<void>;
 }
 
+/**
+ * Uses AI to extract a destination from the trip name.
+ * Falls back to undefined if the model is not ready or extraction fails.
+ */
+async function extractDestinationWithAI(
+  tripName: string,
+  cactusService: CactusService
+): Promise<string | undefined> {
+  try {
+    const state = cactusService.getState();
+    if (!state.isDownloaded || state.isGenerating) {
+      console.log('🌍 Cactus not ready for destination extraction, skipping');
+      return undefined;
+    }
+
+    console.log('🌍 Extracting destination from trip name:', tripName);
+
+    const result = await cactusService.complete(
+      [
+        {
+          role: 'system',
+          content: `You are a travel assistant that extracts destination names from trip titles. 
+Reply with ONLY the destination/location name, nothing else. 
+If you cannot identify a destination, reply with exactly "NONE".
+Examples:
+- "Tokyo Adventure" → Tokyo
+- "Trip to Paris" → Paris  
+- "New York 2025" → New York
+- "Family Vacation Hawaii" → Hawaii
+- "Summer Trip" → NONE
+- "My Birthday" → NONE`,
+        },
+        {
+          role: 'user',
+          content: `Extract the destination from: "${tripName}"`,
+        },
+      ],
+      {
+        maxTokens: 50,
+        temperature: 0.1, // Low temperature for deterministic output
+      }
+    );
+
+    const destination = result.response.trim();
+    console.log('🌍 AI extracted destination:', destination);
+
+    // Check if the AI couldn't identify a destination
+    if (!destination || destination.toUpperCase() === 'NONE' || destination.length < 2) {
+      return undefined;
+    }
+
+    return destination;
+  } catch (error) {
+    console.error('🌍 Failed to extract destination with AI:', error);
+    return undefined;
+  }
+}
+
 export function useTrips(): UseTripsResult {
-  const { tripRepository, memoryStore } = useServices();
+  const { tripRepository, memoryStore, cactusService } = useServices();
   const [trips, setTrips] = useState<TripWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

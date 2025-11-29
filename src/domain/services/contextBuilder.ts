@@ -61,14 +61,14 @@ Be friendly, concise, and helpful in your response.`;
     return `You are a travel assistant. The trip has no activities yet. Tell the user to generate an itinerary first.`;
   }
   
-  // Truncate context if too long (keep under 300 chars for small models)
-  const shortContext = context.length > 300 ? context.substring(0, 300) + '...' : context;
+  // Allow up to 1500 chars for context (Gemma 3 1B can handle this)
+  const shortContext = context.length > 1500 ? context.substring(0, 1500) + '...' : context;
   
-  return `You are a helpful assistant. Here is the trip info:
+  return `You are a helpful travel assistant. Here is the trip itinerary:
 
 ${shortContext}
 
-Answer the user's question about this trip.`;
+Answer questions about this trip accurately based on the itinerary above.`;
 }
 
 /**
