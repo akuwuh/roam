@@ -3,7 +3,7 @@
  * PRD Section 5.2 - Screen 2: Timeline View
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -100,6 +102,35 @@ export function TimelineScreen({ navigation, route }: Props) {
   const [isAddingDay, setIsAddingDay] = useState(false);
   const [isGeneratingFull, setIsGeneratingFull] = useState(false);
   const [isFillingGaps, setIsFillingGaps] = useState(false);
+
+  // Animation state for Add Activity Modal
+  const [modalVisible, setModalVisible] = useState(false);
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    if (showAddModal) {
+      setModalVisible(true);
+      Animated.timing(slideAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        setModalVisible(false);
+      });
+    }
+  }, [showAddModal]);
+
+  const backdropOpacity = slideAnim;
+  const modalTranslateY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Dimensions.get('window').height, 0],
+  });
 
   const handleAddItem = async () => {
     if (!selectedDayId || !newItemTitle.trim() || !newItemStart || !newItemEnd) return;
@@ -348,7 +379,7 @@ export function TimelineScreen({ navigation, route }: Props) {
         {/* Empty State or Days */}
         {totalActivities === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>📅</Text>
+            <Ionicons name="calendar-outline" size={48} color="#000000" style={styles.emptyIcon} />
             <Text style={styles.emptyTitle}>NO PLANS YET</Text>
             <Text style={styles.emptySubtitle}>
               Start building your itinerary by adding trip details or let AI generate one for you
@@ -491,68 +522,94 @@ export function TimelineScreen({ navigation, route }: Props) {
       </ScrollView>
 
       {/* Add Item Modal */}
-      <Modal visible={showAddModal} animationType="slide" transparent>
+      <Modal 
+        visible={modalVisible} 
+        transparent 
+        animationType="none"
+        onRequestClose={() => {
+          setShowAddModal(false);
+          resetAddForm();
+        }}
+      >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Activity</Text>
+          <Animated.View style={[styles.modalBackdrop, { opacity: backdropOpacity }]}>
+            <TouchableOpacity 
+              style={styles.backdropTouchable} 
+              activeOpacity={1} 
+              onPress={() => {
+                setShowAddModal(false);
+                resetAddForm();
+              }}
+            />
+          </Animated.View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Activity Name</Text>
-              <TextInput
-                style={styles.input}
-                value={newItemTitle}
-                onChangeText={setNewItemTitle}
-                placeholder="e.g., Visit Temple"
-                placeholderTextColor="#999999"
-              />
-            </View>
+          <Animated.View 
+            style={[
+              styles.modalContentWrapper, 
+              { transform: [{ translateY: modalTranslateY }] }
+            ]}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Add Activity</Text>
 
-            <View style={styles.timeRow}>
-              <View style={styles.timeInput}>
-                <Text style={styles.label}>Start Time</Text>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Activity Name</Text>
                 <TextInput
                   style={styles.input}
-                  value={newItemStart}
-                  onChangeText={setNewItemStart}
-                  placeholder="09:00"
+                  value={newItemTitle}
+                  onChangeText={setNewItemTitle}
+                  placeholder="e.g., Visit Temple"
                   placeholderTextColor="#999999"
                 />
               </View>
-              <View style={styles.timeInput}>
-                <Text style={styles.label}>End Time</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newItemEnd}
-                  onChangeText={setNewItemEnd}
-                  placeholder="11:00"
-                  placeholderTextColor="#999999"
-                />
+
+              <View style={styles.timeRow}>
+                <View style={styles.timeInput}>
+                  <Text style={styles.label}>Start Time</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newItemStart}
+                    onChangeText={setNewItemStart}
+                    placeholder="09:00"
+                    placeholderTextColor="#999999"
+                  />
+                </View>
+                <View style={styles.timeInput}>
+                  <Text style={styles.label}>End Time</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newItemEnd}
+                    onChangeText={setNewItemEnd}
+                    placeholder="11:00"
+                    placeholderTextColor="#999999"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setShowAddModal(false);
+                    resetAddForm();
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.createButton, isAdding && styles.buttonDisabled]}
+                  onPress={handleAddItem}
+                  disabled={isAdding}
+                >
+                  {isAdding ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.createButtonText}>Add</Text>
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setShowAddModal(false);
-                  resetAddForm();
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.createButton, isAdding && styles.buttonDisabled]}
-                onPress={handleAddItem}
-                disabled={isAdding}
-              >
-                {isAdding ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.createButtonText}>Add</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -750,7 +807,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   emptyIcon: {
-    fontSize: 40,
     marginBottom: 12,
   },
   emptyTitle: {
@@ -1000,13 +1056,28 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+  },
+  backdropTouchable: {
+    flex: 1,
+  },
+  modalContentWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
   },

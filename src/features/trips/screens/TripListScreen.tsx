@@ -23,6 +23,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../types';
@@ -170,9 +171,9 @@ export function TripListScreen({ navigation }: Props) {
               style={styles.menuButton}
               onPress={() => setShowMenuForTrip(showMenuForTrip === item.id ? null : item.id)}
             >
-              <Text style={styles.menuIcon}>⋮</Text>
+              <Ionicons name="ellipsis-vertical" size={20} color="#000000" />
             </TouchableOpacity>
-            <Text style={styles.arrow}>›</Text>
+            <Ionicons name="chevron-forward" size={20} color="#000000" />
           </View>
         </View>
       </View>
@@ -202,7 +203,7 @@ export function TripListScreen({ navigation }: Props) {
             style={styles.menuIconButton}
             onPress={() => {}}
           >
-            <Text style={styles.headerMenuIcon}>⋮</Text>
+            <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -227,7 +228,7 @@ export function TripListScreen({ navigation }: Props) {
         />
       ) : (
         <EmptyState
-          icon="🗺️"
+          icon="map-outline"
           title="No trips yet"
           subtitle="Create your first trip to get started"
         />
@@ -298,7 +299,7 @@ export function TripListScreen({ navigation }: Props) {
                       <Text style={styles.dateButtonText}>
                         {formatDateForDisplay(startDate)}
                       </Text>
-                      <Text style={styles.calendarIcon}>📅</Text>
+                      <Ionicons name="calendar-outline" size={18} color="#000000" />
                     </TouchableOpacity>
                     {showStartDatePicker && (
                       <View style={styles.datePickerContainer}>
@@ -343,7 +344,7 @@ export function TripListScreen({ navigation }: Props) {
                       <Text style={styles.dateButtonText}>
                         {formatDateForDisplay(endDate)}
                       </Text>
-                      <Text style={styles.calendarIcon}>📅</Text>
+                      <Ionicons name="calendar-outline" size={18} color="#000000" />
                     </TouchableOpacity>
                     {showEndDatePicker && (
                       <View style={styles.datePickerContainer}>
