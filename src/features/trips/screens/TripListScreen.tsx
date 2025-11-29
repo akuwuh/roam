@@ -21,7 +21,15 @@ import {
   Animated,
   Dimensions,
   TouchableWithoutFeedback,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
+
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -123,6 +131,7 @@ export function TripListScreen({ navigation }: Props) {
   };
 
   const handleDeleteTrip = (tripId: string, tripName: string) => {
+    setShowMenuForTrip(null);
     Alert.alert(
       'Delete Trip',
       `Are you sure you want to delete "${tripName}"?`,
@@ -132,7 +141,6 @@ export function TripListScreen({ navigation }: Props) {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            setShowMenuForTrip(null);
             await deleteTrip(tripId);
           },
         },
@@ -170,6 +178,7 @@ export function TripListScreen({ navigation }: Props) {
             <TouchableOpacity
               style={styles.menuButton}
               onPress={() => setShowMenuForTrip(showMenuForTrip === item.id ? null : item.id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons name="ellipsis-vertical" size={20} color="#000000" />
             </TouchableOpacity>
@@ -225,6 +234,7 @@ export function TripListScreen({ navigation }: Props) {
           renderItem={renderTrip}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          onScrollBeginDrag={() => setShowMenuForTrip(null)}
         />
       ) : (
         <EmptyState
@@ -292,6 +302,7 @@ export function TripListScreen({ navigation }: Props) {
                     <TouchableOpacity
                       style={styles.dateButton}
                       onPress={() => {
+                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                         setShowStartDatePicker(!showStartDatePicker);
                         setShowEndDatePicker(false);
                       }}
@@ -323,7 +334,10 @@ export function TripListScreen({ navigation }: Props) {
                         {Platform.OS === 'ios' && (
                           <TouchableOpacity 
                             style={styles.dateConfirmButton}
-                            onPress={() => setShowStartDatePicker(false)}
+                            onPress={() => {
+                              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                              setShowStartDatePicker(false);
+                            }}
                           >
                             <Text style={styles.dateConfirmText}>Confirm</Text>
                           </TouchableOpacity>
@@ -337,6 +351,7 @@ export function TripListScreen({ navigation }: Props) {
                     <TouchableOpacity
                       style={styles.dateButton}
                       onPress={() => {
+                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                         setShowEndDatePicker(!showEndDatePicker);
                         setShowStartDatePicker(false);
                       }}
@@ -365,7 +380,10 @@ export function TripListScreen({ navigation }: Props) {
                         {Platform.OS === 'ios' && (
                           <TouchableOpacity 
                             style={styles.dateConfirmButton}
-                            onPress={() => setShowEndDatePicker(false)}
+                            onPress={() => {
+                              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                              setShowEndDatePicker(false);
+                            }}
                           >
                             <Text style={styles.dateConfirmText}>Confirm</Text>
                           </TouchableOpacity>
@@ -514,7 +532,7 @@ const styles = StyleSheet.create({
     right: 16,
     top: 48,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: '#E5E5E5',
     shadowColor: '#000',
@@ -603,7 +621,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    borderRadius: 8,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
@@ -616,7 +634,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    borderRadius: 8,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
@@ -636,7 +654,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     paddingVertical: 16,
-    borderRadius: 8,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: '#E5E5E5',
     alignItems: 'center',
@@ -650,7 +668,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 16,
     backgroundColor: '#000000',
-    borderRadius: 8,
+    borderRadius: 0,
     alignItems: 'center',
   },
   createButtonText: {
@@ -665,7 +683,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    borderRadius: 8,
+    borderRadius: 0,
     backgroundColor: '#F9F9F9',
     overflow: 'hidden',
   },
