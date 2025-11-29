@@ -120,11 +120,45 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
   // Get model status directly from hook
   const isModelReady = cactusLM.isDownloaded && !cactusLM.isDownloading;
   
+  // Log model status on every render for debugging
+  useEffect(() => {
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('🤖 CACTUS LOCAL LLM STATUS');
+    console.log('═══════════════════════════════════════════════════════');
+    console.log(`  📦 Model: gemma3-1b`);
+    console.log(`  💾 Downloaded: ${cactusLM.isDownloaded ? '✅ YES (cached)' : '❌ NO'}`);
+    console.log(`  📥 Downloading: ${cactusLM.isDownloading ? '🔄 IN PROGRESS' : '⏸️ NO'}`);
+    console.log(`  📊 Download Progress: ${Math.round(cactusLM.downloadProgress * 100)}%`);
+    console.log(`  🚀 Model Ready: ${isModelReady ? '✅ READY TO USE' : '⏳ NOT READY'}`);
+    console.log('═══════════════════════════════════════════════════════');
+  }, [cactusLM.isDownloaded, cactusLM.isDownloading, cactusLM.downloadProgress, isModelReady]);
+  
   // Auto-download if needed
   useEffect(() => {
     if (!cactusLM.isDownloaded && !cactusLM.isDownloading) {
-      console.log('🔽 Auto-downloading model in useTripBrain...');
-      cactusLM.download();
+      console.log('');
+      console.log('🔽 ════════════════════════════════════════════════════');
+      console.log('🔽 STARTING MODEL DOWNLOAD');
+      console.log('🔽 Model: gemma3-1b (Local LLM from Cactus)');
+      console.log('🔽 This may take a few minutes on first launch...');
+      console.log('🔽 ════════════════════════════════════════════════════');
+      console.log('');
+      cactusLM.download({
+        onProgress: (progress: number) => {
+          const pct = Math.round(progress * 100);
+          if (pct % 10 === 0) { // Log every 10%
+            console.log(`📥 Download Progress: ${pct}% ${'█'.repeat(pct / 5)}${'░'.repeat(20 - pct / 5)}`);
+          }
+        },
+      });
+    } else if (cactusLM.isDownloaded) {
+      console.log('');
+      console.log('✅ ════════════════════════════════════════════════════');
+      console.log('✅ MODEL ALREADY CACHED - LOADING FROM DEVICE');
+      console.log('✅ Model: gemma3-1b');
+      console.log('✅ No download needed - using cached model');
+      console.log('✅ ════════════════════════════════════════════════════');
+      console.log('');
     }
   }, [cactusLM.isDownloaded, cactusLM.isDownloading]);
 
@@ -205,13 +239,20 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
     console.log('  - System prompt length:', systemPrompt.length);
     console.log('  - System prompt preview:', systemPrompt.substring(0, 300));
 
-    // Include itinerary context with clear instructions
+    // Include itinerary context with clear instructions and guardrails for brevity
     const itineraryContext = context.length > 0 
-      ? `You are my travel assistant. I have this itinerary for my Tokyo trip:
+      ? `You are a concise travel assistant. Keep responses SHORT (2-3 sentences max).
 
+ITINERARY:
 ${context}
 
-Based on this itinerary, please answer: ${question}`
+RULES:
+- Be brief and direct
+- Use bullet points for lists
+- No lengthy explanations
+- Answer only what was asked
+
+Question: ${question}`
       : question;
     
     const conversationHistory: ChatMessage[] = [
@@ -224,8 +265,15 @@ Based on this itinerary, please answer: ${question}`
     console.log('  - Message preview:', itineraryContext.substring(0, 150));
 
     // Use the hook DIRECTLY - not through service wrapper
-    console.log('🧪 Calling cactusLM.complete directly with streaming...');
+    console.log('');
+    console.log('🧠 ════════════════════════════════════════════════════');
+    console.log('🧠 INVOKING LOCAL LLM (gemma3-1b via Cactus)');
+    console.log('🧠 ════════════════════════════════════════════════════');
+    console.log('🧠 Running inference on-device...');
+    console.log('🧠 Max tokens: 256 | Temperature: 0.7');
+    console.log('');
     
+    const startTime = Date.now();
     const result = await cactusLM.complete({
       messages: conversationHistory.map(m => ({
         role: m.role,
@@ -257,12 +305,19 @@ Based on this itinerary, please answer: ${question}`
       },
     });
     
-    console.log('🧪 Direct result:', {
-      success: result.success,
-      response: result.response,
-      responseLength: result.response?.length,
-      totalTokens: result.totalTokens,
-    });
+    const endTime = Date.now();
+    const inferenceTime = ((endTime - startTime) / 1000).toFixed(2);
+    
+    console.log('');
+    console.log('✅ ════════════════════════════════════════════════════');
+    console.log('✅ LOCAL LLM INFERENCE COMPLETE');
+    console.log('✅ ════════════════════════════════════════════════════');
+    console.log(`✅ Success: ${result.success ? 'YES' : 'NO'}`);
+    console.log(`✅ Response length: ${result.response?.length || 0} chars`);
+    console.log(`✅ Total tokens: ${result.totalTokens || 'N/A'}`);
+    console.log(`✅ Inference time: ${inferenceTime}s`);
+    console.log('✅ ════════════════════════════════════════════════════');
+    console.log('');
     
     // Clean up final response - remove any remaining garbage
     console.log('🧹 Generation complete, cleaning up...');
@@ -455,12 +510,28 @@ Based on this itinerary, please answer: ${question}`
   const downloadModel = useCallback(async () => {
     try {
       setError(null);
+      console.log('');
+      console.log('📥 ════════════════════════════════════════════════════');
+      console.log('📥 MANUAL MODEL DOWNLOAD TRIGGERED');
+      console.log('📥 Model: gemma3-1b (Cactus Local LLM)');
+      console.log('📥 ════════════════════════════════════════════════════');
+      console.log('');
+      
       await cactusLM.download({
         onProgress: (progress: number) => {
-          console.log(`Download progress: ${Math.round(progress * 100)}%`);
+          const pct = Math.round(progress * 100);
+          console.log(`📥 Downloading: ${pct}% ${'█'.repeat(pct / 5)}${'░'.repeat(20 - pct / 5)}`);
         },
       });
+      
+      console.log('');
+      console.log('✅ ════════════════════════════════════════════════════');
+      console.log('✅ MODEL DOWNLOAD COMPLETE!');
+      console.log('✅ gemma3-1b is now cached on device');
+      console.log('✅ ════════════════════════════════════════════════════');
+      console.log('');
     } catch (err) {
+      console.error('❌ MODEL DOWNLOAD FAILED:', err);
       setError(err instanceof Error ? err.message : 'Failed to download model');
     }
   }, [cactusLM]);

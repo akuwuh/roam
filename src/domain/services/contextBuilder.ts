@@ -36,44 +36,43 @@ export function buildContextChunks(
  * PRD Section 7.1-7.2 - Trip Brain Q&A
  * 
  * IMPORTANT: Instructs model to answer ONLY from provided context
+ * GUARDRAILS: Keep responses brief for local LLM performance
  */
 export function buildQASystemPrompt(
   question: string,
   context: string,
   tripName?: string
 ): string {
-  const tripContext = tripName ? ` for the trip "${tripName}"` : '';
+  const tripContext = tripName ? ` for "${tripName}"` : '';
   const hasContext = context && context.trim().length > 0;
 
   if (!hasContext) {
     // Fallback prompt when no context is available
-    return `You are a helpful travel assistant${tripContext}. 
+    return `You are a concise travel assistant${tripContext}. 
 
-The user is asking: "${question}"
-
-Unfortunately, no itinerary information is available yet. Please politely explain that the trip doesn't have any activities scheduled yet, and encourage them to generate an itinerary first.
-
-Be friendly, concise, and helpful in your response.`;
+No itinerary yet. Tell user to generate one first. Keep response to 1-2 sentences.`;
   }
 
   // ULTRA SIMPLIFIED - Small models need short prompts
   if (!context || context.length === 0) {
-    return `You are a travel assistant. The trip has no activities yet. Tell the user to generate an itinerary first.`;
+    return `Travel assistant. No activities scheduled. Tell user to generate itinerary. 1 sentence max.`;
   }
   
-  // Allow up to 1500 chars for context (Gemma 3 1B can handle this)
-  const shortContext = context.length > 1500 ? context.substring(0, 1500) + '...' : context;
+  // Allow up to 1200 chars for context (reduced for faster responses)
+  const shortContext = context.length > 1200 ? context.substring(0, 1200) + '...' : context;
   
-  return `You are a helpful travel assistant. Here is the trip itinerary:
+  return `Concise travel assistant${tripContext}. 
 
+ITINERARY:
 ${shortContext}
 
-Answer questions about this trip accurately based on the itinerary above.`;
+RULES: Be brief (2-3 sentences). Use markdown bullets for lists. No rambling.`;
 }
 
 /**
  * Build system prompt for schedule modifications
  * PRD Section 7.3 - "Move [Activity] to the morning"
+ * GUARDRAILS: Keep responses brief for local LLM
  */
 export function buildReplanSystemPrompt(
   command: string,
@@ -83,26 +82,25 @@ export function buildReplanSystemPrompt(
   const eventsContext = dayEvents
     .map(
       (item) =>
-        `- ${item.title}: ${formatTime(item.startDateTime)} to ${formatTime(item.endDateTime)}`
+        `- ${item.title}: ${formatTime(item.startDateTime)}-${formatTime(item.endDateTime)}`
     )
     .join('\n');
 
   const slotsContext = availableSlots
-    .map((slot) => `- ${formatTime(slot.start)} to ${formatTime(slot.end)}`)
+    .map((slot) => `- ${formatTime(slot.start)}-${formatTime(slot.end)}`)
     .join('\n');
 
-  return `You are helping to adjust a travel schedule.
+  return `Schedule helper. Be brief (1-2 sentences).
 
-CURRENT SCHEDULE:
+SCHEDULE:
 ${eventsContext}
 
-AVAILABLE TIME SLOTS:
+SLOTS:
 ${slotsContext}
 
-USER REQUEST: ${command}
+REQUEST: ${command}
 
-Respond with a brief confirmation of what was changed. Be specific about the new times.
-If the request cannot be accommodated, explain why and suggest alternatives.`;
+Confirm change with new times. If impossible, say why briefly.`;
 }
 
 /**

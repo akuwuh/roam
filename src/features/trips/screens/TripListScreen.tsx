@@ -53,6 +53,49 @@ function formatDateRange(startDate: string, endDate: string): string {
   return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
 }
 
+const CollapsibleSection = ({ children, expanded }: { children: React.ReactNode, expanded: boolean }) => {
+  const animatedHeight = useRef(new Animated.Value(expanded ? 1 : 0)).current;
+  const [isMounted, setIsMounted] = useState(expanded);
+
+  useEffect(() => {
+    if (expanded) {
+      setIsMounted(true);
+      Animated.timing(animatedHeight, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      Animated.timing(animatedHeight, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start(() => setIsMounted(false));
+    }
+  }, [expanded]);
+
+  if (!isMounted && Platform.OS === 'ios') return null;
+  // On Android, we might want to just render if expanded because it's a dialog, but the wrapper doesn't hurt if it handles layout.
+  // Actually on Android the DateTimePicker is a dialog so it doesn't take space. 
+  // We can just return null if not expanded on Android too, but the animation doesn't matter as much.
+  // Let's keep consistent behavior but conditional on Platform for the wrapper style if needed.
+  
+  return (
+    <Animated.View
+      style={{
+        height: animatedHeight.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 280],
+        }),
+        opacity: animatedHeight,
+        overflow: 'hidden',
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+};
+
 export function TripListScreen({ navigation }: Props) {
   const { trips, isLoading, createNewTrip, deleteTrip } = useTrips();
   const modelStatus = useModelStatus();
@@ -84,6 +127,8 @@ export function TripListScreen({ navigation }: Props) {
         useNativeDriver: true,
       }).start(() => {
         setModalVisible(false);
+        setShowStartDatePicker(false);
+        setShowEndDatePicker(false);
       });
     }
   }, [showCreateModal]);
@@ -105,6 +150,9 @@ export function TripListScreen({ navigation }: Props) {
         endDate: endDate.toISOString().split('T')[0],
       });
       setShowCreateModal(false);
+      // Delay resetting form values slightly to allow animation to start/finish or just let it be
+      // Since we're navigating away, the modal will close. 
+      // We rely on the useEffect cleanup for layout resets, but form values can be reset here.
       setNewTripName('');
       setStartDate(new Date());
       setEndDate(new Date());
@@ -123,6 +171,7 @@ export function TripListScreen({ navigation }: Props) {
   };
 
   const handleDeleteTrip = (tripId: string, tripName: string) => {
+    setShowMenuForTrip(null);
     Alert.alert(
       'Delete Trip',
       `Are you sure you want to delete "${tripName}"?`,
@@ -132,7 +181,6 @@ export function TripListScreen({ navigation }: Props) {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            setShowMenuForTrip(null);
             await deleteTrip(tripId);
           },
         },
@@ -143,7 +191,10 @@ export function TripListScreen({ navigation }: Props) {
   const renderTrip = ({ item }: { item: TripWithStats }) => (
     <TouchableOpacity
       style={styles.tripCard}
-      onPress={() => navigation.navigate('Timeline', { tripId: item.id })}
+      onPress={() => {
+        setShowMenuForTrip(null);
+        navigation.navigate('Timeline', { tripId: item.id });
+      }}
       activeOpacity={0.7}
     >
       <View style={styles.tripCardInner}>
@@ -170,6 +221,7 @@ export function TripListScreen({ navigation }: Props) {
             <TouchableOpacity
               style={styles.menuButton}
               onPress={() => setShowMenuForTrip(showMenuForTrip === item.id ? null : item.id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons name="ellipsis-vertical" size={20} color="#000000" />
             </TouchableOpacity>
@@ -185,7 +237,7 @@ export function TripListScreen({ navigation }: Props) {
             style={styles.menuItem}
             onPress={() => handleDeleteTrip(item.id, item.name)}
           >
-            <Text style={styles.menuItemTextDelete}>Delete Trip</Text>
+            <Text style={styles.menuItemTextDelete}>Delete</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -199,12 +251,6 @@ export function TripListScreen({ navigation }: Props) {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Trips</Text>
-          <TouchableOpacity
-            style={styles.menuIconButton}
-            onPress={() => {}}
-          >
-            <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -225,6 +271,7 @@ export function TripListScreen({ navigation }: Props) {
           renderItem={renderTrip}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          onScrollBeginDrag={() => setShowMenuForTrip(null)}
         />
       ) : (
         <EmptyState
@@ -237,7 +284,11 @@ export function TripListScreen({ navigation }: Props) {
       {/* New Trip Button */}
       <TouchableOpacity
         style={styles.newButton}
-        onPress={() => setShowCreateModal(true)}
+        onPress={() => {
+          setShowStartDatePicker(true);
+          setShowEndDatePicker(false);
+          setShowCreateModal(true);
+        }}
         activeOpacity={0.8}
       >
         <Text style={styles.newButtonText}>+ NEW TRIP</Text>
@@ -301,7 +352,7 @@ export function TripListScreen({ navigation }: Props) {
                       </Text>
                       <Ionicons name="calendar-outline" size={18} color="#000000" />
                     </TouchableOpacity>
-                    {showStartDatePicker && (
+                    <CollapsibleSection expanded={showStartDatePicker}>
                       <View style={styles.datePickerContainer}>
                         <DateTimePicker
                           value={startDate}
@@ -329,7 +380,7 @@ export function TripListScreen({ navigation }: Props) {
                           </TouchableOpacity>
                         )}
                       </View>
-                    )}
+                    </CollapsibleSection>
                   </View>
 
                   <View style={styles.inputGroup}>
@@ -346,7 +397,7 @@ export function TripListScreen({ navigation }: Props) {
                       </Text>
                       <Ionicons name="calendar-outline" size={18} color="#000000" />
                     </TouchableOpacity>
-                    {showEndDatePicker && (
+                    <CollapsibleSection expanded={showEndDatePicker}>
                       <View style={styles.datePickerContainer}>
                         <DateTimePicker
                           value={endDate}
@@ -371,7 +422,7 @@ export function TripListScreen({ navigation }: Props) {
                           </TouchableOpacity>
                         )}
                       </View>
-                    )}
+                    </CollapsibleSection>
                   </View>
 
                   <View style={styles.modalButtons}>
@@ -514,7 +565,7 @@ const styles = StyleSheet.create({
     right: 16,
     top: 48,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: '#E5E5E5',
     shadowColor: '#000',
@@ -603,7 +654,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    borderRadius: 8,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
@@ -616,7 +667,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    borderRadius: 8,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
@@ -636,7 +687,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     paddingVertical: 16,
-    borderRadius: 8,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: '#E5E5E5',
     alignItems: 'center',
@@ -650,7 +701,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 16,
     backgroundColor: '#000000',
-    borderRadius: 8,
+    borderRadius: 0,
     alignItems: 'center',
   },
   createButtonText: {
@@ -665,7 +716,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    borderRadius: 8,
+    borderRadius: 0,
     backgroundColor: '#F9F9F9',
     overflow: 'hidden',
   },

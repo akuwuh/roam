@@ -1,4 +1,4 @@
-# 🌵 Cactus Chat
+# Roam 
 
 A local AI chatbot powered by [Cactus SDK](https://cactuscompute.com/) running entirely on your device.
 

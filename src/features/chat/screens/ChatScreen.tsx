@@ -3,7 +3,7 @@
  * PRD Section 5.3 - Screen 3: Chat / Trip Brain
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,11 @@ import {
   SafeAreaView,
   FlatList,
   ActivityIndicator,
+  Platform,
+  Keyboard,
+  Animated,
+  Easing,
+  LayoutAnimation,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,6 +37,41 @@ export function ChatScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
   const { isOnline } = useNetwork();
   const flatListRef = useRef<FlatList>(null);
+  
+  // Keyboard animation
+  const [bottomPadding, setBottomPadding] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      const showSubscription = Keyboard.addListener('keyboardWillShow', (e) => {
+        LayoutAnimation.configureNext({
+          duration: e.duration > 10 ? e.duration : 250,
+          update: {
+            duration: e.duration > 10 ? e.duration : 250,
+            type: (e.easing !== undefined) ? LayoutAnimation.Types[e.easing] : LayoutAnimation.Types.keyboard,
+          },
+        });
+        setBottomPadding(e.endCoordinates.height);
+      });
+      
+      const hideSubscription = Keyboard.addListener('keyboardWillHide', (e) => {
+        LayoutAnimation.configureNext({
+          duration: e.duration > 10 ? e.duration : 250,
+          update: {
+            duration: e.duration > 10 ? e.duration : 250,
+            type: (e.easing !== undefined) ? LayoutAnimation.Types[e.easing] : LayoutAnimation.Types.keyboard,
+          },
+        });
+        setBottomPadding(0);
+      });
+
+      return () => {
+        showSubscription.remove();
+        hideSubscription.remove();
+      };
+    }
+  }, []);
+
   const {
     messages,
     isGenerating,
@@ -173,79 +213,81 @@ export function ChatScreen({ navigation, route }: Props) {
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>TRIP BRAIN</Text>
-        <View style={styles.headerRight}>
-          <View style={[styles.statusBadge, isOnline ? styles.onlineBadge : styles.offlineBadge]}>
-            <Text style={styles.statusBadgeText}>
-              {isOnline ? 'ONLINE' : 'OFFLINE'}
-            </Text>
+      <View style={styles.contentContainer}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.backButton}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>TRIP BRAIN</Text>
+          <View style={styles.headerRight}>
+            <View style={[styles.statusBadge, isOnline ? styles.onlineBadge : styles.offlineBadge]}>
+              <Text style={styles.statusBadgeText}>
+                {isOnline ? 'ONLINE' : 'OFFLINE'}
+              </Text>
+            </View>
+            {messages.length > 0 && (
+              <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
+                <Text style={styles.clearButtonText}>Clear</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          {messages.length > 0 && (
-            <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
-              <Text style={styles.clearButtonText}>Clear</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {renderKBStatus()}
-
-      {error && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(_, index) => index.toString()}
-        contentContainerStyle={[
-          styles.messageList,
-          messages.length === 0 && styles.messageListEmpty,
-        ]}
-        ListEmptyComponent={renderEmptyState}
-        showsVerticalScrollIndicator={false}
-      />
-
-      {renderPendingAction()}
-
-      <View style={styles.inputContainer}>
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={() => ask("What's on my schedule today?")}
-            disabled={isGenerating}
-          >
-            <Text style={styles.quickActionText}>Today's Schedule</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={() => ask("Do I have any free time?")}
-            disabled={isGenerating}
-          >
-            <Text style={styles.quickActionText}>Free Time?</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={() => ask("What should I know about this destination?")}
-            disabled={isGenerating}
-          >
-            <Text style={styles.quickActionText}>Tips</Text>
-          </TouchableOpacity>
         </View>
 
-        <ChatInput
-          onSend={ask}
-          disabled={isGenerating}
-          placeholder={isGenerating ? 'Thinking...' : 'Ask about your trip...'}
+        {renderKBStatus()}
+
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(_, index) => index.toString()}
+          contentContainerStyle={[
+            styles.messageList,
+            messages.length === 0 && styles.messageListEmpty,
+          ]}
+          ListEmptyComponent={renderEmptyState}
+          showsVerticalScrollIndicator={false}
         />
+
+        {renderPendingAction()}
+
+        <View style={[styles.inputContainer, { paddingBottom: Platform.OS === 'ios' ? 0 : 0, marginBottom: Platform.OS === 'ios' ? bottomPadding : 0 }]}>
+          {/* Quick Actions */}
+          <View style={styles.quickActions}>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => ask("What's on my schedule today?")}
+              disabled={isGenerating}
+            >
+              <Text style={styles.quickActionText}>Today's Schedule</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => ask("Do I have any free time?")}
+              disabled={isGenerating}
+            >
+              <Text style={styles.quickActionText}>Free Time?</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => ask("What should I know about this destination?")}
+              disabled={isGenerating}
+            >
+              <Text style={styles.quickActionText}>Tips</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ChatInput
+            onSend={ask}
+            disabled={isGenerating}
+            placeholder={isGenerating ? 'Thinking...' : 'Ask about your trip...'}
+          />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -255,6 +297,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  contentContainer: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
