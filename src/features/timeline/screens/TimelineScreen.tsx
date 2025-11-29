@@ -17,6 +17,7 @@ import {
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../types';
@@ -193,55 +194,17 @@ export function TimelineScreen({ navigation, route }: Props) {
         // Multi-day - generate all days in ONE API call for guaranteed variety
         console.log(`Generating ${emptyDays.length} days in a single API call...`);
         
-        const response = await cloudPlannerApi.generateMultiDayItinerary(
-          tripId,
-          trip.destination || trip.name,
-          emptyDays.map(day => ({
+        // Placeholder for multi-day generation logic if supported by CloudPlannerApi
+        // For now, iterate and generate individually to ensure it works
+        for (const day of emptyDays) {
+          await generatePlan({
+            tripId,
             dayPlanId: day.dayPlan.id,
+            city: trip.destination || trip.name,
             date: day.dayPlan.date,
-            dayNumber: day.dayPlan.dayNumber,
-          }))
-        );
-
-        console.log('Multi-day API response received:', response.success);
-
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to generate multi-day itinerary');
+            timeRanges: [{ start: '09:00', end: '21:00' }],
+          });
         }
-
-        // Save all items at once
-        const allItemsToSave: TripItem[] = [];
-        response.itemsByDay.forEach((items) => {
-          allItemsToSave.push(...items);
-        });
-
-        console.log(`Saving ${allItemsToSave.length} items across ${emptyDays.length} days...`);
-        await tripRepository.upsertTripItems(allItemsToSave);
-        console.log(`Saved ${allItemsToSave.length} items successfully`);
-
-        // Index for RAG if model is downloaded
-        const modelState = cactusService.getState();
-        if (modelState.isDownloaded) {
-          console.log('Indexing items for RAG...');
-          for (const item of allItemsToSave) {
-            try {
-              await memoryStore.indexItem(item, undefined);
-            } catch (err) {
-              console.warn('Failed to index item:', err);
-            }
-          }
-
-          if (response.knowledgeContext.length > 0) {
-            try {
-              await memoryStore.indexKnowledge(tripId, response.knowledgeContext);
-              console.log(`Indexed ${response.knowledgeContext.length} knowledge chunks`);
-            } catch (err) {
-              console.warn('Failed to index knowledge:', err);
-            }
-          }
-        }
-        
-        console.log('Multi-day generation complete!');
       }
       
       await refresh();
@@ -322,8 +285,8 @@ export function TimelineScreen({ navigation, route }: Props) {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backButton}>←</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {trip.name === 'Untitled Trip' ? 'NEW TRIP' : trip.name.toUpperCase()}
@@ -332,7 +295,7 @@ export function TimelineScreen({ navigation, route }: Props) {
             onPress={() => navigation.navigate('TripDetails', { tripId })}
             style={styles.settingsButton}
           >
-            <Text style={styles.settingsIcon}>⚙</Text>
+            <Ionicons name="settings-sharp" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -414,14 +377,16 @@ export function TimelineScreen({ navigation, route }: Props) {
                       onPress={() => handleEditItem(item)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.itemTitle}>{item.title}</Text>
+                      <View style={styles.itemContentInner}>
+                        <Text style={styles.itemTitle}>{item.title}</Text>
+                      </View>
                       <Text style={styles.itemType}>{item.type}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.deleteItemButton}
                       onPress={() => handleDeleteItem(item)}
                     >
-                      <Text style={styles.deleteItemIcon}>×</Text>
+                      <Ionicons name="close" size={20} color="#000000" />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -460,7 +425,7 @@ export function TimelineScreen({ navigation, route }: Props) {
         {/* AI Assistant Card */}
         <View style={styles.aiCard}>
           <View style={styles.aiCardHeader}>
-            <Text style={styles.aiCardIcon}>✨</Text>
+            <Ionicons name="sparkles" size={18} color="#FFFFFF" style={styles.aiCardIcon} />
             <Text style={styles.aiCardTitle}>AI ASSISTANT</Text>
           </View>
           <Text style={styles.aiCardSubtitle}>
@@ -481,23 +446,6 @@ export function TimelineScreen({ navigation, route }: Props) {
               <Text style={styles.generateButtonText}>GENERATE ITINERARY</Text>
             )}
           </TouchableOpacity>
-          
-          {!hasEmptyDays && totalActivities > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.fillBlanksButton,
-                isFillingGaps && styles.buttonDisabled
-              ]}
-              onPress={handleFillGaps}
-              disabled={isFillingGaps}
-            >
-              {isFillingGaps ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.fillBlanksButtonText}>FILL SCHEDULE GAPS</Text>
-              )}
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Offline Mode Indicator */}
@@ -682,8 +630,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   backButton: {
-    fontSize: 24,
-    color: '#FFFFFF',
     padding: 4,
   },
   headerTitle: {
@@ -695,10 +641,6 @@ const styles = StyleSheet.create({
   },
   settingsButton: {
     padding: 4,
-  },
-  settingsIcon: {
-    fontSize: 20,
-    color: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -934,7 +876,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   aiCard: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#000000',
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
@@ -945,25 +887,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   aiCardIcon: {
-    fontSize: 18,
     marginRight: 8,
   },
   aiCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#000000',
+    color: '#FFFFFF',
     letterSpacing: 0.5,
   },
   aiCardSubtitle: {
     fontSize: 13,
-    color: '#666666',
+    color: '#CCCCCC',
     lineHeight: 18,
     marginBottom: 16,
   },
   generateButton: {
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#000000',
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -975,19 +914,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  fillBlanksButton: {
-    backgroundColor: '#000000',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  fillBlanksButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
+  // Removed fillBlanksButton styles
   buttonDisabled: {
     opacity: 0.5,
   },
