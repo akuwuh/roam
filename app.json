@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Travel Planner",
-    "slug": "cactus-travel-planner",
+    "name": "Roam",
+    "slug": "roam",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

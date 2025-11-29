@@ -1,0 +1,61 @@
+/**
+ * Hook for tracking Cactus model download status
+ * PRD Phase 3 - Show model download progress in UI
+ */
+
+import { useState, useCallback, useEffect } from 'react';
+import { useCactusLM } from 'cactus-react-native';
+
+export interface ModelStatus {
+  isDownloaded: boolean;
+  isDownloading: boolean;
+  downloadProgress: number;
+  isReady: boolean;
+  error: string | null;
+}
+
+export interface UseModelStatusResult extends ModelStatus {
+  downloadModel: () => Promise<void>;
+}
+
+export function useModelStatus(): UseModelStatusResult {
+  const [error, setError] = useState<string | null>(null);
+
+  const cactusLM = useCactusLM({
+    contextSize: 2048, // Optimized for mobile
+  });
+
+  const isReady = cactusLM.isDownloaded && !cactusLM.isDownloading;
+
+  const downloadModel = useCallback(async () => {
+    try {
+      setError(null);
+      await cactusLM.download({
+        onProgress: (progress: number) => {
+          console.log(`Download progress: ${Math.round(progress * 100)}%`);
+        },
+      });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to download model';
+      setError(errorMessage);
+      console.error('Download error:', err);
+    }
+  }, [cactusLM]);
+
+  useEffect(() => {
+    if (cactusLM.error) {
+      setError(cactusLM.error);
+    }
+  }, [cactusLM.error]);
+
+  return {
+    isDownloaded: cactusLM.isDownloaded ?? false,
+    isDownloading: cactusLM.isDownloading ?? false,
+    downloadProgress: cactusLM.downloadProgress ?? 0,
+    isReady,
+    error,
+    downloadModel,
+  };
+}
+
