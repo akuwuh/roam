@@ -337,6 +337,13 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: '500',
   },
+  messageList: {
+    paddingVertical: 16,
+  },
+  messageListEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   actionContainer: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,

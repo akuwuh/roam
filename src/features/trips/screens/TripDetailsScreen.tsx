@@ -16,6 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -129,11 +130,11 @@ export function TripDetailsScreen({ navigation, route }: Props) {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Trip Details</Text>
         <TouchableOpacity onPress={handleSave} disabled={isSaving}>
-          <Text style={styles.checkButton}>✓</Text>
+          <Ionicons name="checkmark" size={24} color="#000000" />
         </TouchableOpacity>
       </View>
 
@@ -161,7 +162,9 @@ export function TripDetailsScreen({ navigation, route }: Props) {
               placeholder="Where are you going?"
               placeholderTextColor="#999999"
             />
-            <Text style={styles.locationIcon}>📍</Text>
+            <View style={styles.iconContainer}>
+              <Ionicons name="location-outline" size={18} color="#000000" />
+            </View>
           </View>
         </View>
 
@@ -228,7 +231,9 @@ export function TripDetailsScreen({ navigation, route }: Props) {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>BUDGET</Text>
           <View style={styles.inputWithIcon}>
-            <Text style={styles.currencyIcon}>$</Text>
+            <View style={styles.currencyIconContainer}>
+              <Ionicons name="cash-outline" size={18} color="#000000" />
+            </View>
             <TextInput
               style={[styles.input, styles.inputFlex, styles.budgetInput]}
               value={budget}
@@ -237,7 +242,9 @@ export function TripDetailsScreen({ navigation, route }: Props) {
               placeholderTextColor="#999999"
               keyboardType="decimal-pad"
             />
-            <Text style={styles.chevron}>⌃</Text>
+            <View style={styles.chevronContainer}>
+              <Ionicons name="chevron-down" size={16} color="#000000" />
+            </View>
           </View>
         </View>
 
@@ -393,8 +400,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 0,
   },
-  locationIcon: {
-    fontSize: 18,
+  iconContainer: {
     paddingRight: 16,
   },
   dateRow: {
@@ -425,20 +431,14 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontWeight: '500',
   },
-  currencyIcon: {
-    fontSize: 16,
-    color: '#000000',
+  currencyIconContainer: {
     paddingLeft: 16,
-    fontWeight: '700',
   },
   budgetInput: {
     paddingLeft: 8,
   },
-  chevron: {
-    fontSize: 12,
-    color: '#000000',
+  chevronContainer: {
     paddingRight: 16,
-    transform: [{ rotate: '180deg' }],
   },
   tripTypeGrid: {
     flexDirection: 'row',

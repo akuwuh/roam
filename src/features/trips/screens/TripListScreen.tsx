@@ -3,7 +3,7 @@
  * PRD Section 5.1 - Screen 1: Trip List
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,8 +18,12 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  Dimensions,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../types';
@@ -60,6 +64,35 @@ export function TripListScreen({ navigation }: Props) {
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  
+  // Animation state
+  const [modalVisible, setModalVisible] = useState(false);
+  const slideAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (showCreateModal) {
+      setModalVisible(true);
+      Animated.timing(slideAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        setModalVisible(false);
+      });
+    }
+  }, [showCreateModal]);
+
+  const backdropOpacity = slideAnim;
+  const modalTranslateY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Dimensions.get('window').height, 0],
+  });
 
   const handleCreateTrip = async () => {
     if (!newTripName.trim()) return;
@@ -138,9 +171,9 @@ export function TripListScreen({ navigation }: Props) {
               style={styles.menuButton}
               onPress={() => setShowMenuForTrip(showMenuForTrip === item.id ? null : item.id)}
             >
-              <Text style={styles.menuIcon}>⋮</Text>
+              <Ionicons name="ellipsis-vertical" size={20} color="#000000" />
             </TouchableOpacity>
-            <Text style={styles.arrow}>›</Text>
+            <Ionicons name="chevron-forward" size={20} color="#000000" />
           </View>
         </View>
       </View>
@@ -170,7 +203,7 @@ export function TripListScreen({ navigation }: Props) {
             style={styles.menuIconButton}
             onPress={() => {}}
           >
-            <Text style={styles.headerMenuIcon}>⋮</Text>
+            <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -195,7 +228,7 @@ export function TripListScreen({ navigation }: Props) {
         />
       ) : (
         <EmptyState
-          icon="🗺️"
+          icon="map-outline"
           title="No trips yet"
           subtitle="Create your first trip to get started"
         />
@@ -211,113 +244,160 @@ export function TripListScreen({ navigation }: Props) {
       </TouchableOpacity>
 
       {/* Create Trip Modal */}
-      <Modal visible={showCreateModal} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <TouchableOpacity 
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowCreateModal(false)}
-          />
-          <View style={styles.modalContent}>
-            <ScrollView 
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+      <Modal 
+        visible={modalVisible} 
+        transparent 
+        animationType="none"
+        onRequestClose={() => setShowCreateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View style={[styles.modalBackdrop, { opacity: backdropOpacity }]}>
+            <TouchableOpacity 
+              style={styles.backdropTouchable} 
+              activeOpacity={1} 
+              onPress={() => setShowCreateModal(false)}
+            />
+          </Animated.View>
+          
+          <Animated.View 
+            style={[
+              styles.modalContentWrapper, 
+              { transform: [{ translateY: modalTranslateY }] }
+            ]}
+          >
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.keyboardView}
             >
-              <Text style={styles.modalTitle}>New Trip</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Trip Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newTripName}
-                  onChangeText={setNewTripName}
-                  placeholder="e.g., Tokyo Adventure"
-                  placeholderTextColor="#999999"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Start Date</Text>
-                <TouchableOpacity
-                  style={styles.dateButton}
-                  onPress={() => setShowStartDatePicker(true)}
+              <View style={styles.modalContent}>
+                <ScrollView 
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
                 >
-                  <Text style={styles.dateButtonText}>
-                    {formatDateForDisplay(startDate)}
-                  </Text>
-                  <Text style={styles.calendarIcon}>📅</Text>
-                </TouchableOpacity>
-                {showStartDatePicker && (
-                  <DateTimePicker
-                    value={startDate}
-                    mode="date"
-                    display="spinner"
-                    onChange={(event, selectedDate) => {
-                      setShowStartDatePicker(false);
-                      if (selectedDate) {
-                        setStartDate(selectedDate);
-                        // Auto-adjust end date if it's before start date
-                        if (selectedDate > endDate) {
-                          setEndDate(selectedDate);
-                        }
-                      }
-                    }}
-                  />
-                )}
-              </View>
+                  <Text style={styles.modalTitle}>New Trip</Text>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>End Date</Text>
-                <TouchableOpacity
-                  style={styles.dateButton}
-                  onPress={() => setShowEndDatePicker(true)}
-                >
-                  <Text style={styles.dateButtonText}>
-                    {formatDateForDisplay(endDate)}
-                  </Text>
-                  <Text style={styles.calendarIcon}>📅</Text>
-                </TouchableOpacity>
-                {showEndDatePicker && (
-                  <DateTimePicker
-                    value={endDate}
-                    mode="date"
-                    display="spinner"
-                    minimumDate={startDate}
-                    onChange={(event, selectedDate) => {
-                      setShowEndDatePicker(false);
-                      if (selectedDate) {
-                        setEndDate(selectedDate);
-                      }
-                    }}
-                  />
-                )}
-              </View>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Trip Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={newTripName}
+                      onChangeText={setNewTripName}
+                      placeholder="e.g., Tokyo Adventure"
+                      placeholderTextColor="#999999"
+                    />
+                  </View>
 
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setShowCreateModal(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.createButton, isCreating && styles.buttonDisabled]}
-                  onPress={handleCreateTrip}
-                  disabled={isCreating}
-                >
-                  {isCreating ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.createButtonText}>Create</Text>
-                  )}
-                </TouchableOpacity>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Start Date</Text>
+                    <TouchableOpacity
+                      style={styles.dateButton}
+                      onPress={() => {
+                        setShowStartDatePicker(!showStartDatePicker);
+                        setShowEndDatePicker(false);
+                      }}
+                    >
+                      <Text style={styles.dateButtonText}>
+                        {formatDateForDisplay(startDate)}
+                      </Text>
+                      <Ionicons name="calendar-outline" size={18} color="#000000" />
+                    </TouchableOpacity>
+                    {showStartDatePicker && (
+                      <View style={styles.datePickerContainer}>
+                        <DateTimePicker
+                          value={startDate}
+                          mode="date"
+                          display="spinner"
+                          onChange={(event, selectedDate) => {
+                            if (Platform.OS === 'android') {
+                              setShowStartDatePicker(false);
+                            }
+                            if (selectedDate) {
+                              setStartDate(selectedDate);
+                              // Auto-adjust end date if it's before start date
+                              if (selectedDate > endDate) {
+                                setEndDate(selectedDate);
+                              }
+                            }
+                          }}
+                        />
+                        {Platform.OS === 'ios' && (
+                          <TouchableOpacity 
+                            style={styles.dateConfirmButton}
+                            onPress={() => setShowStartDatePicker(false)}
+                          >
+                            <Text style={styles.dateConfirmText}>Confirm</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>End Date</Text>
+                    <TouchableOpacity
+                      style={styles.dateButton}
+                      onPress={() => {
+                        setShowEndDatePicker(!showEndDatePicker);
+                        setShowStartDatePicker(false);
+                      }}
+                    >
+                      <Text style={styles.dateButtonText}>
+                        {formatDateForDisplay(endDate)}
+                      </Text>
+                      <Ionicons name="calendar-outline" size={18} color="#000000" />
+                    </TouchableOpacity>
+                    {showEndDatePicker && (
+                      <View style={styles.datePickerContainer}>
+                        <DateTimePicker
+                          value={endDate}
+                          mode="date"
+                          display="spinner"
+                          minimumDate={startDate}
+                          onChange={(event, selectedDate) => {
+                            if (Platform.OS === 'android') {
+                              setShowEndDatePicker(false);
+                            }
+                            if (selectedDate) {
+                              setEndDate(selectedDate);
+                            }
+                          }}
+                        />
+                        {Platform.OS === 'ios' && (
+                          <TouchableOpacity 
+                            style={styles.dateConfirmButton}
+                            onPress={() => setShowEndDatePicker(false)}
+                          >
+                            <Text style={styles.dateConfirmText}>Confirm</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                      style={styles.cancelButton}
+                      onPress={() => setShowCreateModal(false)}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.createButton, isCreating && styles.buttonDisabled]}
+                      onPress={handleCreateTrip}
+                      disabled={isCreating}
+                    >
+                      {isCreating ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.createButtonText}>Create</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
               </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+          </Animated.View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -476,11 +556,27 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
   },
   modalBackdrop: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  backdropTouchable: {
+    flex: 1,
+  },
+  modalContentWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: '90%',
+  },
+  keyboardView: {
+    width: '100%',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
@@ -488,7 +584,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
-    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 24,
@@ -565,5 +660,25 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  datePickerContainer: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+    backgroundColor: '#F9F9F9',
+    overflow: 'hidden',
+  },
+  dateConfirmButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+    backgroundColor: '#FFFFFF',
+  },
+  dateConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
   },
 });
