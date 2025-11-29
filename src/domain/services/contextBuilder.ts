@@ -43,20 +43,32 @@ export function buildQASystemPrompt(
   tripName?: string
 ): string {
   const tripContext = tripName ? ` for the trip "${tripName}"` : '';
+  const hasContext = context && context.trim().length > 0;
 
-  return `You are a helpful travel assistant${tripContext}. Answer the user's question using ONLY the information provided below.
+  if (!hasContext) {
+    // Fallback prompt when no context is available
+    return `You are a helpful travel assistant${tripContext}. 
 
-CONTEXT:
-${context}
+The user is asking: "${question}"
 
-RULES:
-1. Answer based ONLY on the context provided above
-2. If the answer is not in the context, say: "I don't have that information in your itinerary. Would you like to add it?"
-3. Be concise and helpful
-4. For time-related questions, be specific with dates and times
-5. Do not make up or assume information not in the context
+Unfortunately, no itinerary information is available yet. Please politely explain that the trip doesn't have any activities scheduled yet, and encourage them to generate an itinerary first.
 
-USER QUESTION: ${question}`;
+Be friendly, concise, and helpful in your response.`;
+  }
+
+  // ULTRA SIMPLIFIED - Small models need short prompts
+  if (!context || context.length === 0) {
+    return `You are a travel assistant. The trip has no activities yet. Tell the user to generate an itinerary first.`;
+  }
+  
+  // Truncate context if too long (keep under 300 chars for small models)
+  const shortContext = context.length > 300 ? context.substring(0, 300) + '...' : context;
+  
+  return `You are a helpful assistant. Here is the trip info:
+
+${shortContext}
+
+Answer the user's question about this trip.`;
 }
 
 /**

@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { useCactusLM } from 'cactus-react-native';
 import type { TripItem } from '../../../domain/models';
 import type { ChatMessage } from '../../../types';
 import {
@@ -13,6 +14,7 @@ import {
   isModificationCommand,
   extractTargetFromCommand,
   summarizeDay,
+  formatTime,
 } from '../../../domain/services';
 import {
   getItemsAfter,
@@ -22,6 +24,45 @@ import {
 import { getDurationMinutes } from '../../../domain/services';
 import { useServices } from '../../../app/providers';
 import { useNetwork } from '../../../app/providers';
+
+/**
+ * Build fallback context when semantic search is unavailable
+ */
+function buildFallbackContext(items: TripItem[], tripName?: string): string {
+  if (items.length === 0) {
+    return `No activities have been added to ${tripName || 'this trip'} yet.`;
+  }
+
+  // Group by day
+  const itemsByDay = items.reduce((acc, item) => {
+    const day = item.dayPlanId;
+    if (!acc[day]) acc[day] = [];
+    acc[day].push(item);
+    return acc;
+  }, {} as Record<string, TripItem[]>);
+
+  let context = tripName ? `Trip: ${tripName}\n\n` : '';
+  context += 'ITINERARY:\n';
+
+  Object.entries(itemsByDay).forEach(([dayId, dayItems]) => {
+    const sorted = [...dayItems].sort(
+      (a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()
+    );
+    
+    context += `\nDay ${dayId}:\n`;
+    sorted.forEach(item => {
+      const start = formatTime(item.startDateTime);
+      const end = formatTime(item.endDateTime);
+      context += `- ${start}-${end}: ${item.title}`;
+      if (item.description) {
+        context += ` (${item.description})`;
+      }
+      context += '\n';
+    });
+  });
+
+  return context;
+}
 
 export interface PendingAction {
   id: string;
@@ -56,9 +97,15 @@ export interface UseTripBrainResult {
 }
 
 export function useTripBrain(tripId: string): UseTripBrainResult {
-  const { cactusService, tripRepository, memoryStore, placeRepository } =
-    useServices();
+  const { tripRepository, memoryStore, placeRepository } = useServices();
   const { isOnline } = useNetwork();
+  
+  // Use Cactus hook DIRECTLY in this component (not through service)
+  const cactusLM = useCactusLM({
+    model: 'gemma3-1b',
+    contextSize: 4096,
+  });
+  
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,9 +117,16 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
     isSynced: false,
   });
 
-  // Get model status
-  const modelState = cactusService.getState();
-  const isModelReady = modelState.isDownloaded && !modelState.isDownloading;
+  // Get model status directly from hook
+  const isModelReady = cactusLM.isDownloaded && !cactusLM.isDownloading;
+  
+  // Auto-download if needed
+  useEffect(() => {
+    if (!cactusLM.isDownloaded && !cactusLM.isDownloading) {
+      console.log('🔽 Auto-downloading model in useTripBrain...');
+      cactusLM.download();
+    }
+  }, [cactusLM.isDownloaded, cactusLM.isDownloading]);
 
   // Load trip items for context
   const [tripItems, setTripItems] = useState<TripItem[]>([]);
@@ -86,19 +140,16 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
       const items = await tripRepository.getAllTripItems(tripId);
       setTripItems(items);
 
-      // Load KB status
-      try {
-        const status = await memoryStore.getKnowledgeBaseStatus(tripId);
-        setKBStatus({
-          ...status,
-          isSynced: status.totalCount > 0,
-        });
-      } catch (err) {
-        console.warn('Failed to get KB status:', err);
-      }
+      // Update KB status based on trip items (no embeddings needed)
+      setKBStatus({
+        itemCount: items.length,
+        knowledgeCount: 0,
+        totalCount: items.length,
+        isSynced: items.length > 0,
+      });
     }
     loadTripData();
-  }, [tripId, tripRepository, memoryStore]);
+  }, [tripId, tripRepository]);
 
   const ask = useCallback(
     async (question: string): Promise<void> => {
@@ -131,28 +182,62 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
         setIsGenerating(false);
       }
     },
-    [isModelReady, tripId, tripItems, tripName, cactusService, memoryStore]
+    [isModelReady, tripId, tripItems, tripName, cactusLM, memoryStore]
   );
 
   const handleQuestion = async (question: string): Promise<void> => {
-    // Step 1: Search memory store for relevant context
-    const searchResults = await memoryStore.search(tripId, question, 5);
+    console.log('🔍 Chat Debug - Starting handleQuestion');
+    
+    
+    // Build context directly from trip items (bypass embeddings)
+    // For most trips, this is simpler and more reliable than semantic search
+    const context = buildFallbackContext(tripItems, tripName);
 
-    // Step 2: Build context from memory results
-    const context = buildContextChunks(searchResults);
+    console.log('🔍 Chat Debug:');
+    console.log('  - Trip items count:', tripItems.length);
+    console.log('  - Trip name:', tripName);
+    console.log('  - Context length:', context.length);
+    console.log('  - Context preview:', context.substring(0, 200));
 
-    // Step 3: Build system prompt
+    // Build system prompt with full itinerary context
     const systemPrompt = buildQASystemPrompt(question, context, tripName);
+    
+    console.log('  - System prompt length:', systemPrompt.length);
+    console.log('  - System prompt preview:', systemPrompt.substring(0, 300));
 
-    // Step 4: Get completion from Cactus
+    // Include itinerary context in the user message
+    const itineraryContext = context.length > 0 
+      ? `Here is my trip itinerary:\n${context}\n\nQuestion: ${question}`
+      : question;
+    
     const conversationHistory: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
-      ...messages.slice(-10), // Include recent conversation
-      { role: 'user', content: question },
+      { role: 'user', content: itineraryContext },
     ];
 
-    const result = await cactusService.complete(conversationHistory, {
+    console.log('📨 Sending to LLM:');
+    console.log('  - Total messages:', conversationHistory.length);
+    console.log('  - Context included:', context.length > 0);
+    console.log('  - Message preview:', itineraryContext.substring(0, 150));
+
+    // Use the hook DIRECTLY - not through service wrapper
+    console.log('🧪 Calling cactusLM.complete directly with streaming...');
+    
+    const result = await cactusLM.complete({
+      messages: conversationHistory.map(m => ({
+        role: m.role,
+        content: m.content,
+      })),
+      options: {
+        maxTokens: 512,
+        temperature: 0.7,
+      },
       onToken: (token: string) => {
+        // Skip special tokens
+        if (token.includes('<end_of_turn>') || token.includes('<start_of_turn>')) {
+          return;
+        }
+        
+        // Stream tokens to UI in real-time
         setMessages((prev) => {
           const updated = [...prev];
           const lastIdx = updated.length - 1;
@@ -166,6 +251,45 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
         });
       },
     });
+    
+    console.log('🧪 Direct result:', {
+      success: result.success,
+      response: result.response,
+      responseLength: result.response?.length,
+      totalTokens: result.totalTokens,
+    });
+    
+    // Clean up final response - remove any remaining garbage
+    console.log('🧹 Generation complete, cleaning up...');
+    
+    setMessages((prev) => {
+      const updated = [...prev];
+      const lastIdx = updated.length - 1;
+      if (lastIdx >= 0 && updated[lastIdx].role === 'assistant') {
+        let content = updated[lastIdx].content;
+        // Clean up Gemma's tokens and hallucinated names
+        content = content
+          .replace(/<end_of_turn>/g, '')
+          .replace(/<start_of_turn>/g, '')
+          .replace(/model\n/g, '')
+          .split(/(?:Christophe|Alain|Jules)/)[0]
+          .trim();
+        
+        // If streaming didn't work, use the result
+        if (!content && result.response) {
+          content = result.response
+            .replace(/<end_of_turn>/g, '')
+            .replace(/<start_of_turn>/g, '')
+            .split(/(?:Christophe|Alain|Jules)/)[0]
+            .trim();
+        }
+        
+        updated[lastIdx] = { ...updated[lastIdx], content };
+      }
+      return updated;
+    });
+    
+    console.log('✅ Response complete!');
 
     // If streaming didn't work, set full response
     if (result.response) {
@@ -232,27 +356,26 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
     // Step 4: Build replan prompt and get confirmation
     const systemPrompt = buildReplanSystemPrompt(command, dayItems, [slot]);
 
-    const result = await cactusService.complete(
-      [
+    const result = await cactusLM.complete({
+      messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: command },
       ],
-      {
-        onToken: (token: string) => {
-          setMessages((prev) => {
-            const updated = [...prev];
-            const lastIdx = updated.length - 1;
-            if (lastIdx >= 0 && updated[lastIdx].role === 'assistant') {
-              updated[lastIdx] = {
-                ...updated[lastIdx],
-                content: updated[lastIdx].content + token,
-              };
-            }
-            return updated;
-          });
-        },
+      options: {
+        maxTokens: 256,
+        temperature: 0.7,
+      },
+    });
+    
+    // Update message with response
+    setMessages((prev) => {
+      const updated = [...prev];
+      const lastIdx = updated.length - 1;
+      if (lastIdx >= 0 && updated[lastIdx].role === 'assistant') {
+        updated[lastIdx] = { ...updated[lastIdx], content: result.response };
       }
-    );
+      return updated;
+    });
 
     // Create a pending action for the user to approve
     setPendingAction({
@@ -332,19 +455,21 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
   const downloadModel = useCallback(async () => {
     try {
       setError(null);
-      await cactusService.download((progress) => {
-        console.log(`Download progress: ${Math.round(progress * 100)}%`);
+      await cactusLM.download({
+        onProgress: (progress: number) => {
+          console.log(`Download progress: ${Math.round(progress * 100)}%`);
+        },
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to download model');
     }
-  }, [cactusService]);
+  }, [cactusLM]);
 
   return {
     messages,
     isGenerating,
-    isDownloading: modelState.isDownloading,
-    downloadProgress: modelState.downloadProgress,
+    isDownloading: cactusLM.isDownloading,
+    downloadProgress: cactusLM.downloadProgress,
     isModelReady,
     error,
     kbStatus,

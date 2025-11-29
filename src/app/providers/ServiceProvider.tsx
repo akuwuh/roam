@@ -38,11 +38,47 @@ interface ServiceProviderProps {
   children: React.ReactNode;
 }
 
+// Create a singleton CactusLM instance outside of React
+let cactusInstance: any = null;
+
 export function ServiceProvider({ children }: ServiceProviderProps) {
-  // Initialize Cactus LM
+  // Use Gemma 3 1B - Google's model with excellent instruction following
   const cactusLM = useCactusLM({
-    contextSize: 2048,
+    model: 'gemma3-1b',
+    contextSize: 4096,
   });
+
+  // Only log once when instance changes
+  useEffect(() => {
+    console.log('🤖 Cactus LM hook ready:', {
+      isDownloaded: cactusLM.isDownloaded,
+      isGenerating: cactusLM.isGenerating,
+    });
+  }, [cactusLM.isDownloaded]);
+  
+  // List available models
+  useEffect(() => {
+    const listModels = async () => {
+      try {
+        console.log('📋 Fetching available models from Cactus...');
+        const { CactusLM } = require('cactus-react-native');
+        const tempLM = new CactusLM();
+        const models = await tempLM.getModels();
+        
+        console.log('📋 Available models:');
+        models.forEach((model: any, idx: number) => {
+          console.log(`  ${idx + 1}. ${model.slug} (${model.sizeMb}MB) - ${model.name}`);
+        });
+        
+        // Cleanup
+        await tempLM.destroy();
+      } catch (err) {
+        console.error('❌ Could not fetch models:', err);
+      }
+    };
+    
+    listModels();
+  }, []);
 
   // Auto-download model on first load
   useEffect(() => {
@@ -68,13 +104,26 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
   // Initialize model after download (loads into memory for inference)
   useEffect(() => {
     const initModel = async () => {
+      console.log('🔧 Model Status Check:', {
+        isDownloaded: cactusLM.isDownloaded,
+        isDownloading: cactusLM.isDownloading,
+        isInitializing: cactusLM.isInitializing,
+        hasInit: !!cactusLM.init,
+        hasEmbed: !!cactusLM.embed,
+        hasComplete: !!cactusLM.complete,
+      });
+
       if (cactusLM.isDownloaded && !cactusLM.isInitializing && cactusLM.init) {
-        console.log('Initializing Cactus model...');
+        console.log('🚀 Initializing Cactus model...');
         try {
           await cactusLM.init();
-          console.log('Cactus model initialized - ready for inference!');
+          console.log('✅ Cactus model initialized - ready for inference!');
+          console.log('📊 Model info:', {
+            modelName: cactusLM.modelName || 'Unknown',
+            contextSize: cactusLM.contextSize || 'Unknown',
+          });
         } catch (err) {
-          console.error('Failed to initialize model:', err);
+          console.error('❌ Failed to initialize model:', err);
         }
       }
     };

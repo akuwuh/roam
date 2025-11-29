@@ -81,11 +81,11 @@ export function ChatScreen({ navigation, route }: Props) {
       ]} />
       <Text style={styles.kbStatusText}>
         {kbStatus.isSynced 
-          ? `KB synced (${kbStatus.totalCount} items)` 
-          : 'KB not synced'}
+          ? `Itinerary loaded (${kbStatus.totalCount} activities)` 
+          : 'No itinerary'}
       </Text>
       {isOnline && !kbStatus.isSynced && (
-        <Text style={styles.kbStatusHint}>Generate itinerary to sync</Text>
+        <Text style={styles.kbStatusHint}>Generate itinerary to chat</Text>
       )}
     </View>
   );
