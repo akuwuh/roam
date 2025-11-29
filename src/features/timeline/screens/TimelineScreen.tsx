@@ -113,6 +113,10 @@ export function TimelineScreen({ navigation, route }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
   
+  // Animation state for Edit Activity Modal
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const editSlideAnim = useRef(new Animated.Value(0)).current;
+  
   useEffect(() => {
     if (showAddModal) {
       setModalVisible(true);
@@ -132,8 +136,33 @@ export function TimelineScreen({ navigation, route }: Props) {
     }
   }, [showAddModal]);
 
+  useEffect(() => {
+    if (showEditModal) {
+      setEditModalVisible(true);
+      Animated.timing(editSlideAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(editSlideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        setEditModalVisible(false);
+      });
+    }
+  }, [showEditModal]);
+
   const backdropOpacity = slideAnim;
   const modalTranslateY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Dimensions.get('window').height, 0],
+  });
+
+  const editBackdropOpacity = editSlideAnim;
+  const editModalTranslateY = editSlideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [Dimensions.get('window').height, 0],
   });
@@ -652,69 +681,97 @@ export function TimelineScreen({ navigation, route }: Props) {
       </Modal>
 
       {/* Edit Item Modal */}
-      <Modal visible={showEditModal} animationType="slide" transparent>
+      <Modal 
+        visible={editModalVisible} 
+        transparent 
+        animationType="none"
+        onRequestClose={() => {
+          setShowEditModal(false);
+          setEditingItem(null);
+          resetAddForm();
+        }}
+      >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Activity</Text>
+          <Animated.View style={[styles.modalBackdrop, { opacity: editBackdropOpacity }]}>
+            <TouchableOpacity 
+              style={styles.backdropTouchable} 
+              activeOpacity={1} 
+              onPress={() => {
+                setShowEditModal(false);
+                setEditingItem(null);
+                resetAddForm();
+              }}
+            />
+          </Animated.View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Activity Name</Text>
-              <TextInput
-                style={styles.input}
-                value={newItemTitle}
-                onChangeText={setNewItemTitle}
-                placeholder="e.g., Visit Temple"
-                placeholderTextColor="#999999"
-              />
-            </View>
+          <Animated.View 
+            style={[
+              styles.modalContentWrapper, 
+              { transform: [{ translateY: editModalTranslateY }] }
+            ]}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Edit Activity</Text>
 
-            <View style={styles.timeRow}>
-              <View style={styles.timeInput}>
-                <Text style={styles.label}>Start Time</Text>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Activity Name</Text>
                 <TextInput
                   style={styles.input}
-                  value={newItemStart}
-                  onChangeText={setNewItemStart}
-                  placeholder="09:00"
+                  value={newItemTitle}
+                  onChangeText={setNewItemTitle}
+                  placeholder="e.g., Visit Temple"
                   placeholderTextColor="#999999"
                 />
               </View>
-              <View style={styles.timeInput}>
-                <Text style={styles.label}>End Time</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newItemEnd}
-                  onChangeText={setNewItemEnd}
-                  placeholder="11:00"
-                  placeholderTextColor="#999999"
-                />
+
+              <View style={styles.timeRow}>
+                <View style={styles.timeInput}>
+                  <Text style={styles.label}>Start Time</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newItemStart}
+                    onChangeText={setNewItemStart}
+                    placeholder="09:00"
+                    placeholderTextColor="#999999"
+                  />
+                </View>
+                <View style={styles.timeInput}>
+                  <Text style={styles.label}>End Time</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newItemEnd}
+                    onChangeText={setNewItemEnd}
+                    placeholder="11:00"
+                    placeholderTextColor="#999999"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setShowEditModal(false);
+                    setEditingItem(null);
+                    resetAddForm();
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.createButton, isAdding && styles.buttonDisabled]}
+                  onPress={handleSaveEdit}
+                  disabled={isAdding}
+                >
+                  {isAdding ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.createButtonText}>Save</Text>
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setShowEditModal(false);
-                  setEditingItem(null);
-                  resetAddForm();
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.createButton, isAdding && styles.buttonDisabled]}
-                onPress={handleSaveEdit}
-                disabled={isAdding}
-              >
-                {isAdding ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.createButtonText}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </SafeAreaView>
