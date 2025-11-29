@@ -951,9 +951,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#F0F8FF',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
     marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
   },
   offlineIcon: {
     fontSize: 16,
