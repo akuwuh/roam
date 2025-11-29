@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Travel Planner",
-    "slug": "cactus-travel-planner",
+    "name": "Roam",
+    "slug": "roam",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -26,7 +26,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.cactuschat.app"
+      "package": "com.akuwuh.roam"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,7 +35,7 @@
       "expo-dev-client"
     ],
     "extra": {
-      "geminiApiKey": ""
+      "openRouterApiKey": ""
     }
   }
 }

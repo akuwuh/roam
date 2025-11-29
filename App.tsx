@@ -1,34 +1,22 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { HomeScreen } from './src/screens/HomeScreen';
-import { PlannerScreen } from './src/screens/PlannerScreen';
-import { ItineraryScreen } from './src/screens/ItineraryScreen';
-import { ChatScreen } from './src/screens/ChatScreen';
+/**
+ * Roam - Local-first AI Trip Planner
+ * Main App Entry Point
+ */
 
-export type RootStackParamList = {
-  Home: undefined;
-  Planner: undefined;
-  Itinerary: { itineraryId: string };
-  Chat: { itinerary?: any };
-};
-
-const Stack = createNativeStackNavigator<RootStackParamList>();
+import React, { useState } from 'react';
+import { ServiceProvider, NetworkProvider } from './src/app/providers';
+import { RootNavigator } from './src/app/navigation';
+import { SplashScreen } from './src/features/splash/screens/SplashScreen';
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
-    <NavigationContainer>
-      <Stack.Navigator 
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: '#FFFFFF' }
-        }}
-      >
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Planner" component={PlannerScreen} />
-        <Stack.Screen name="Itinerary" component={ItineraryScreen} />
-        <Stack.Screen name="Chat" component={ChatScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <NetworkProvider>
+      <ServiceProvider>
+        <RootNavigator />
+        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+      </ServiceProvider>
+    </NetworkProvider>
   );
 }

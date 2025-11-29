@@ -1,4 +1,4 @@
-# 🌵 Cactus Chat
+# Roam 
 
 A local AI chatbot powered by [Cactus SDK](https://cactuscompute.com/) running entirely on your device.
 
@@ -11,13 +11,25 @@ A local AI chatbot powered by [Cactus SDK](https://cactuscompute.com/) running e
 
 ## Quick Start
 
-### 1. Install Dependencies
+### 1. Configure API Key
+
+```bash
+# Copy the example env file
+cp .env.example .env
+
+# Edit .env and add your OpenRouter API key
+# Get a free key from: https://openrouter.ai/keys
+```
+
+**Important**: `.env` is gitignored and will never be committed. Keep your API keys secure!
+
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Build for iOS Device
+### 3. Build for iOS Device
 
 Connect your iPhone via USB, then:
 
@@ -30,7 +42,7 @@ This will:
 - Build the app (~5-10 minutes first time)
 - Install on your connected iPhone
 
-### 3. Start Development Server
+### 4. Start Development Server
 
 After the initial build, use hot reload:
 
