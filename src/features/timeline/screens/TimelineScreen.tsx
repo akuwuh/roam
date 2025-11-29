@@ -14,11 +14,13 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../types';
+import type { TripItem } from '../../../domain/models';
 import { useTimeline, type TimelineDay } from '../hooks/useTimeline';
 import { useHybridPlanner } from '../../planner/hooks/useHybridPlanner';
 import { useModelStatus } from '../../../infrastructure/cactus';
@@ -39,7 +41,7 @@ function calculateDuration(startDate: string, endDate: string): number {
 
 export function TimelineScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
-  const { trip, days, allItems, isLoading, addItem, addDay, refresh } = useTimeline(tripId);
+  const { trip, days, allItems, isLoading, addItem, addDay, deleteItem, refresh } = useTimeline(tripId);
   const { generatePlan, isGenerating: isPlanGenerating, replanLocal } = useHybridPlanner();
   const modelStatus = useModelStatus();
   
@@ -132,6 +134,23 @@ export function TimelineScreen({ navigation, route }: Props) {
     } finally {
       setIsFillingBlanks(false);
     }
+  };
+
+  const handleDeleteItem = (item: TripItem) => {
+    Alert.alert(
+      'Delete Activity',
+      `Remove "${item.title}" from your itinerary?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteItem(item.id);
+          },
+        },
+      ]
+    );
   };
 
   if (isLoading || !trip) {
@@ -246,6 +265,12 @@ export function TimelineScreen({ navigation, route }: Props) {
                       <Text style={styles.itemTitle}>{item.title}</Text>
                       <Text style={styles.itemType}>{item.type}</Text>
                     </View>
+                    <TouchableOpacity
+                      style={styles.deleteItemButton}
+                      onPress={() => handleDeleteItem(item)}
+                    >
+                      <Text style={styles.deleteItemIcon}>×</Text>
+                    </TouchableOpacity>
                   </View>
                 ))}
               </View>
@@ -607,6 +632,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 12,
     borderRadius: 8,
+    marginRight: 8,
   },
   itemTitle: {
     fontSize: 16,
@@ -618,6 +644,20 @@ const styles = StyleSheet.create({
     color: '#666666',
     marginTop: 4,
     textTransform: 'capitalize',
+  },
+  deleteItemButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFE5E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  deleteItemIcon: {
+    fontSize: 24,
+    color: '#FF3B30',
+    fontWeight: '300',
   },
   addItemButton: {
     paddingVertical: 12,
