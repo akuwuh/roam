@@ -23,7 +23,8 @@ export function useModelStatus(): UseModelStatusResult {
   const [error, setError] = useState<string | null>(null);
 
   const cactusLM = useCactusLM({
-    contextSize: 2048, // Optimized for mobile
+    model: 'lfm2-700m', // Best balance: speed + quality + tool calling (467MB)
+    contextSize: 1024,  // Reduced for faster inference
   });
 
   // Model is ready when downloaded AND not initializing

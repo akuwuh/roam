@@ -39,9 +39,15 @@ interface ServiceProviderProps {
 }
 
 export function ServiceProvider({ children }: ServiceProviderProps) {
-  // Initialize Cactus LM
+  // Initialize Cactus LM with LFM 2 700M - optimal balance for mobile:
+  // - 467MB download (fast to download)
+  // - Fast inference speed
+  // - Tool calling support for schedule modifications
+  // - Good reasoning for trip Q&A
+  // - Lower context = faster + less memory
   const cactusLM = useCactusLM({
-    contextSize: 2048,
+    model: 'lfm2-700m', // Best balance: speed + quality + tool calling
+    contextSize: 1024,  // Reduced for faster inference on mobile
   });
 
   // Auto-download and initialize model on first launch
