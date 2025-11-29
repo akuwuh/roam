@@ -3,7 +3,7 @@
  * PRD Section 5.3 - Screen 3: Chat / Trip Brain
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,11 @@ import {
   SafeAreaView,
   FlatList,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  Animated,
+  Easing,
+  LayoutAnimation,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,6 +37,41 @@ export function ChatScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
   const { isOnline } = useNetwork();
   const flatListRef = useRef<FlatList>(null);
+  
+  // Keyboard animation
+  const [bottomPadding, setBottomPadding] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      const showSubscription = Keyboard.addListener('keyboardWillShow', (e) => {
+        LayoutAnimation.configureNext({
+          duration: e.duration > 10 ? e.duration : 250,
+          update: {
+            duration: e.duration > 10 ? e.duration : 250,
+            type: (e.easing !== undefined) ? LayoutAnimation.Types[e.easing] : LayoutAnimation.Types.keyboard,
+          },
+        });
+        setBottomPadding(e.endCoordinates.height);
+      });
+      
+      const hideSubscription = Keyboard.addListener('keyboardWillHide', (e) => {
+        LayoutAnimation.configureNext({
+          duration: e.duration > 10 ? e.duration : 250,
+          update: {
+            duration: e.duration > 10 ? e.duration : 250,
+            type: (e.easing !== undefined) ? LayoutAnimation.Types[e.easing] : LayoutAnimation.Types.keyboard,
+          },
+        });
+        setBottomPadding(0);
+      });
+
+      return () => {
+        showSubscription.remove();
+        hideSubscription.remove();
+      };
+    }
+  }, []);
+
   const {
     messages,
     isGenerating,
@@ -175,11 +213,7 @@ export function ChatScreen({ navigation, route }: Props) {
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
+      <View style={styles.contentContainer}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Text style={styles.backButton}>←</Text>
@@ -222,7 +256,7 @@ export function ChatScreen({ navigation, route }: Props) {
 
         {renderPendingAction()}
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { paddingBottom: Platform.OS === 'ios' ? 0 : 0, marginBottom: Platform.OS === 'ios' ? bottomPadding : 0 }]}>
           {/* Quick Actions */}
           <View style={styles.quickActions}>
             <TouchableOpacity 
@@ -254,7 +288,7 @@ export function ChatScreen({ navigation, route }: Props) {
             placeholder={isGenerating ? 'Thinking...' : 'Ask about your trip...'}
           />
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -264,7 +298,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  keyboardContainer: {
+  contentContainer: {
     flex: 1,
   },
   header: {

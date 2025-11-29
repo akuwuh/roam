@@ -21,15 +21,7 @@ import {
   Animated,
   Dimensions,
   TouchableWithoutFeedback,
-  LayoutAnimation,
-  UIManager,
 } from 'react-native';
-
-if (Platform.OS === 'android') {
-  if (UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-  }
-}
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -60,6 +52,49 @@ function formatDateRange(startDate: string, endDate: string): string {
   const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
   return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
 }
+
+const CollapsibleSection = ({ children, expanded }: { children: React.ReactNode, expanded: boolean }) => {
+  const animatedHeight = useRef(new Animated.Value(expanded ? 1 : 0)).current;
+  const [isMounted, setIsMounted] = useState(expanded);
+
+  useEffect(() => {
+    if (expanded) {
+      setIsMounted(true);
+      Animated.timing(animatedHeight, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      Animated.timing(animatedHeight, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start(() => setIsMounted(false));
+    }
+  }, [expanded]);
+
+  if (!isMounted && Platform.OS === 'ios') return null;
+  // On Android, we might want to just render if expanded because it's a dialog, but the wrapper doesn't hurt if it handles layout.
+  // Actually on Android the DateTimePicker is a dialog so it doesn't take space. 
+  // We can just return null if not expanded on Android too, but the animation doesn't matter as much.
+  // Let's keep consistent behavior but conditional on Platform for the wrapper style if needed.
+  
+  return (
+    <Animated.View
+      style={{
+        height: animatedHeight.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 280],
+        }),
+        opacity: animatedHeight,
+        overflow: 'hidden',
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+};
 
 export function TripListScreen({ navigation }: Props) {
   const { trips, isLoading, createNewTrip, deleteTrip } = useTrips();
@@ -156,7 +191,10 @@ export function TripListScreen({ navigation }: Props) {
   const renderTrip = ({ item }: { item: TripWithStats }) => (
     <TouchableOpacity
       style={styles.tripCard}
-      onPress={() => navigation.navigate('Timeline', { tripId: item.id })}
+      onPress={() => {
+        setShowMenuForTrip(null);
+        navigation.navigate('Timeline', { tripId: item.id });
+      }}
       activeOpacity={0.7}
     >
       <View style={styles.tripCardInner}>
@@ -199,7 +237,7 @@ export function TripListScreen({ navigation }: Props) {
             style={styles.menuItem}
             onPress={() => handleDeleteTrip(item.id, item.name)}
           >
-            <Text style={styles.menuItemTextDelete}>Delete Trip</Text>
+            <Text style={styles.menuItemTextDelete}>Delete</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -213,12 +251,6 @@ export function TripListScreen({ navigation }: Props) {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Trips</Text>
-          <TouchableOpacity
-            style={styles.menuIconButton}
-            onPress={() => Alert.alert('About', 'Roam v1.0.0\nYour AI Travel Companion')}
-          >
-            <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -311,7 +343,6 @@ export function TripListScreen({ navigation }: Props) {
                     <TouchableOpacity
                       style={styles.dateButton}
                       onPress={() => {
-                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                         setShowStartDatePicker(!showStartDatePicker);
                         setShowEndDatePicker(false);
                       }}
@@ -321,7 +352,7 @@ export function TripListScreen({ navigation }: Props) {
                       </Text>
                       <Ionicons name="calendar-outline" size={18} color="#000000" />
                     </TouchableOpacity>
-                    {showStartDatePicker && (
+                    <CollapsibleSection expanded={showStartDatePicker}>
                       <View style={styles.datePickerContainer}>
                         <DateTimePicker
                           value={startDate}
@@ -343,16 +374,13 @@ export function TripListScreen({ navigation }: Props) {
                         {Platform.OS === 'ios' && (
                           <TouchableOpacity 
                             style={styles.dateConfirmButton}
-                            onPress={() => {
-                              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                              setShowStartDatePicker(false);
-                            }}
+                            onPress={() => setShowStartDatePicker(false)}
                           >
                             <Text style={styles.dateConfirmText}>Confirm</Text>
                           </TouchableOpacity>
                         )}
                       </View>
-                    )}
+                    </CollapsibleSection>
                   </View>
 
                   <View style={styles.inputGroup}>
@@ -360,7 +388,6 @@ export function TripListScreen({ navigation }: Props) {
                     <TouchableOpacity
                       style={styles.dateButton}
                       onPress={() => {
-                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                         setShowEndDatePicker(!showEndDatePicker);
                         setShowStartDatePicker(false);
                       }}
@@ -370,7 +397,7 @@ export function TripListScreen({ navigation }: Props) {
                       </Text>
                       <Ionicons name="calendar-outline" size={18} color="#000000" />
                     </TouchableOpacity>
-                    {showEndDatePicker && (
+                    <CollapsibleSection expanded={showEndDatePicker}>
                       <View style={styles.datePickerContainer}>
                         <DateTimePicker
                           value={endDate}
@@ -389,16 +416,13 @@ export function TripListScreen({ navigation }: Props) {
                         {Platform.OS === 'ios' && (
                           <TouchableOpacity 
                             style={styles.dateConfirmButton}
-                            onPress={() => {
-                              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                              setShowEndDatePicker(false);
-                            }}
+                            onPress={() => setShowEndDatePicker(false)}
                           >
                             <Text style={styles.dateConfirmText}>Confirm</Text>
                           </TouchableOpacity>
                         )}
                       </View>
-                    )}
+                    </CollapsibleSection>
                   </View>
 
                   <View style={styles.modalButtons}>
