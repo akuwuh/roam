@@ -65,6 +65,23 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
     autoDownloadModel();
   }, [cactusLM]);
 
+  // Initialize model after download (loads into memory for inference)
+  useEffect(() => {
+    const initModel = async () => {
+      if (cactusLM.isDownloaded && !cactusLM.isInitializing && cactusLM.init) {
+        console.log('Initializing Cactus model...');
+        try {
+          await cactusLM.init();
+          console.log('Cactus model initialized - ready for inference!');
+        } catch (err) {
+          console.error('Failed to initialize model:', err);
+        }
+      }
+    };
+
+    initModel();
+  }, [cactusLM.isDownloaded, cactusLM.isInitializing]);
+
   // Create services with memoization
   const services = useMemo<Services>(() => {
     // Storage repositories
