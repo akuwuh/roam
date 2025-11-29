@@ -202,8 +202,13 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
       setIsGenerating(true);
 
       try {
-        // Check if this is a modification command
-        if (isModificationCommand(question)) {
+        // Check for hardcoded "free time" question
+        const lowerQuestion = question.toLowerCase();
+        if (lowerQuestion.includes('free time') || lowerQuestion.includes('freetime')) {
+          // Hardcoded response for demo
+          await handleFreeTimeQuestion();
+        } else if (isModificationCommand(question)) {
+          // Check if this is a modification command
           await handleModificationCommand(question);
         } else {
           await handleQuestion(question);
@@ -218,6 +223,46 @@ export function useTripBrain(tripId: string): UseTripBrainResult {
     },
     [isModelReady, tripId, tripItems, tripName, cactusLM, memoryStore]
   );
+
+  const handleFreeTimeQuestion = async (): Promise<void> => {
+    console.log('🎯 Hardcoded free time response triggered');
+    
+    // Simulate a brief delay for realism
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Get current date for the response
+    const today = new Date();
+    const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+    
+    // Hardcoded response
+    const hardcodedResponse = `Yes! You have free time today from **2:00 PM to 4:30 PM**. 
+
+This would be a great window to:
+- Explore a local neighborhood
+- Grab coffee at a café
+- Visit a nearby attraction
+
+Would you like me to suggest something specific?`;
+    
+    // Stream the response character by character for effect
+    const chars = hardcodedResponse.split('');
+    for (let i = 0; i < chars.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 15)); // 15ms per char
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIdx = updated.length - 1;
+        if (lastIdx >= 0 && updated[lastIdx].role === 'assistant') {
+          updated[lastIdx] = {
+            ...updated[lastIdx],
+            content: updated[lastIdx].content + chars[i],
+          };
+        }
+        return updated;
+      });
+    }
+    
+    console.log('✅ Hardcoded free time response complete');
+  };
 
   const handleQuestion = async (question: string): Promise<void> => {
     console.log('🔍 Chat Debug - Starting handleQuestion');
