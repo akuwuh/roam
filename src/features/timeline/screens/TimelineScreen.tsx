@@ -39,6 +39,47 @@ function calculateDuration(startDate: string, endDate: string): number {
   return diffDays;
 }
 
+function findScheduleGaps(day: TimelineDay): { start: string; end: string }[] {
+  const gaps: { start: string; end: string }[] = [];
+  const date = day.dayPlan.date;
+  
+  // Sort items by start time
+  const sortedItems = [...day.items].sort((a, b) => 
+    new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()
+  );
+
+  // Define day bounds (9am to 9pm)
+  const dayStart = new Date(`${date}T09:00:00`).getTime();
+  const dayEnd = new Date(`${date}T21:00:00`).getTime();
+
+  let lastEndTime = dayStart;
+
+  for (const item of sortedItems) {
+    const itemStart = new Date(item.startDateTime).getTime();
+    const itemEnd = new Date(item.endDateTime).getTime();
+
+    // Check for gap before this item
+    if (itemStart - lastEndTime > 2 * 60 * 60 * 1000) { // > 2 hours
+      gaps.push({
+        start: new Date(lastEndTime).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        end: new Date(itemStart).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
+      });
+    }
+
+    lastEndTime = Math.max(lastEndTime, itemEnd);
+  }
+
+  // Check for gap after last item
+  if (dayEnd - lastEndTime > 2 * 60 * 60 * 1000) {
+    gaps.push({
+      start: new Date(lastEndTime).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+      end: '21:00'
+    });
+  }
+
+  return gaps;
+}
+
 export function TimelineScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
   const { trip, days, allItems, isLoading, addItem, addDay, deleteItem, refresh } = useTimeline(tripId);
@@ -55,6 +96,7 @@ export function TimelineScreen({ navigation, route }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingDay, setIsAddingDay] = useState(false);
   const [isGeneratingFull, setIsGeneratingFull] = useState(false);
+  const [isFillingGaps, setIsFillingGaps] = useState(false);
 
   const handleAddItem = async () => {
     if (!selectedDayId || !newItemTitle.trim() || !newItemStart || !newItemEnd) return;
@@ -147,6 +189,41 @@ export function TimelineScreen({ navigation, route }: Props) {
       await refresh();
     } finally {
       setIsGeneratingFull(false);
+    }
+  };
+
+  const handleFillGaps = async () => {
+    if (!trip) return;
+    
+    setIsFillingGaps(true);
+    try {
+      let hasGaps = false;
+      
+      // Check each day for gaps
+      for (const day of days) {
+        if (day.items.length === 0) continue; // Skip empty days (use Generate Itinerary instead)
+        
+        const gaps = findScheduleGaps(day);
+        if (gaps.length > 0) {
+          hasGaps = true;
+          // Generate plan for the gaps
+          await generatePlan({
+            tripId,
+            dayPlanId: day.dayPlan.id,
+            city: trip.destination || trip.name,
+            date: day.dayPlan.date,
+            timeRanges: gaps,
+          });
+        }
+      }
+      
+      if (!hasGaps) {
+        Alert.alert('No Gaps Found', 'Your schedule looks pretty full already!');
+      } else {
+        await refresh();
+      }
+    } finally {
+      setIsFillingGaps(false);
     }
   };
 
@@ -348,9 +425,20 @@ export function TimelineScreen({ navigation, route }: Props) {
           </TouchableOpacity>
           
           {!hasEmptyDays && totalActivities > 0 && (
-            <Text style={styles.aiHelperText}>
-              All days have activities. Use Trip Brain to get suggestions.
-            </Text>
+            <TouchableOpacity
+              style={[
+                styles.fillBlanksButton,
+                isFillingGaps && styles.buttonDisabled
+              ]}
+              onPress={handleFillGaps}
+              disabled={isFillingGaps}
+            >
+              {isFillingGaps ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.fillBlanksButtonText}>FILL SCHEDULE GAPS</Text>
+              )}
+            </TouchableOpacity>
           )}
         </View>
 
@@ -527,9 +615,9 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#000000',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: 60, // Increased for status bar
+    paddingBottom: 20,
   },
   headerTop: {
     flexDirection: 'row',
@@ -539,16 +627,16 @@ const styles = StyleSheet.create({
   backButton: {
     fontSize: 24,
     color: '#FFFFFF',
-    padding: 8,
+    padding: 4,
   },
   headerTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 1,
   },
   settingsButton: {
-    padding: 8,
+    padding: 4,
   },
   settingsIcon: {
     fontSize: 20,
@@ -559,57 +647,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   tripInfoCard: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
+    backgroundColor: '#000000',
+    padding: 24,
+    marginTop: 0,
   },
   tripInfoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    marginBottom: 8,
   },
   tripInfoName: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '700',
-    color: '#000000',
+    color: '#FFFFFF',
     flex: 1,
+    marginRight: 16,
+    letterSpacing: 0.5,
   },
   editButton: {
-    borderWidth: 1,
-    borderColor: '#000000',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 4,
+    borderRadius: 0,
   },
   editButtonText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#000000',
     letterSpacing: 0.5,
   },
   tripInfoDates: {
     fontSize: 14,
-    color: '#666666',
+    color: '#CCCCCC',
     marginTop: 4,
+    marginBottom: 24,
   },
   tripInfoStats: {
     flexDirection: 'row',
-    marginTop: 16,
-    gap: 32,
+    gap: 40,
   },
   tripInfoStat: {},
   tripInfoStatLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#666666',
-    letterSpacing: 0.5,
-    marginBottom: 2,
+    fontWeight: '700',
+    color: '#999999',
+    letterSpacing: 1,
+    marginBottom: 4,
   },
   tripInfoStatValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000000',
+    color: '#FFFFFF',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -799,11 +888,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  aiHelperText: {
-    fontSize: 12,
-    color: '#666666',
-    textAlign: 'center',
-    marginTop: 8,
+  fillBlanksButton: {
+    backgroundColor: '#000000',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  fillBlanksButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   buttonDisabled: {
     opacity: 0.5,

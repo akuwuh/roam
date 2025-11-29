@@ -4,9 +4,18 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { LayoutAnimation, Platform, UIManager } from 'react-native';
 import type { Trip, DayPlan, TripItem } from '../../../domain/models';
 import { createTripItem, createDayPlan } from '../../../domain/models';
 import { useServices } from '../../../app/providers';
+
+// Enable LayoutAnimation on Android
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export interface TimelineDay {
   dayPlan: DayPlan;
@@ -42,9 +51,9 @@ export function useTimeline(tripId: string): UseTimelineResult {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadTimeline = useCallback(async () => {
+  const loadTimeline = useCallback(async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       setError(null);
 
       // Load trip
@@ -66,6 +75,7 @@ export function useTimeline(tripId: string): UseTimelineResult {
         })
       );
 
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setDays(timelineDays);
 
       // Flatten all items for convenience
@@ -74,13 +84,16 @@ export function useTimeline(tripId: string): UseTimelineResult {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load timeline');
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [tripId, tripRepository]);
 
   useEffect(() => {
     loadTimeline();
-  }, [loadTimeline]);
+  }, []); // Run once on mount
+
+  // Expose a refresh method that can be silent
+  const refresh = useCallback(() => loadTimeline(true), [loadTimeline]);
 
   const addItem = useCallback(
     async (params: {
