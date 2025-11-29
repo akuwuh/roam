@@ -179,27 +179,25 @@ Example: ["Tip 1", "Tip 2", "Tip 3"]`;
         ? `Focus on: ${request.interests.join(', ')}.`
         : '';
 
-    return `Create a comprehensive day itinerary for ${request.city} on ${request.date}.
+    return `Create a day itinerary for ${request.city} on ${request.date}.
 Available time: ${timeRangeStr || '09:00 to 21:00 (full day)'}.
 ${interestsStr}
 
-CRITICAL REQUIREMENTS:
-1. Generate AT LEAST 6-8 activities to fill the entire day
-2. Include breakfast, lunch, and dinner
-3. Add transportation between major locations
-4. Include varied activities (sightseeing, dining, cultural experiences)
-5. Make sure times are realistic and activities don't overlap
+REQUIREMENTS:
+1. Generate exactly 3-4 key activities for the day
+2. Focus on the most important/memorable experiences
+3. Include at least one meal (lunch or dinner)
+4. Make sure times are realistic and activities don't overlap
+5. Leave breathing room between activities
 
 Respond with ONLY a JSON array, no markdown, code blocks, or explanation.
 
 Format:
 [
-  {"title": "Breakfast at Local Café", "type": "activity", "startTime": "08:00", "endTime": "09:00", "description": "Start the day with traditional breakfast"},
   {"title": "Visit Historic Temple", "type": "activity", "startTime": "09:30", "endTime": "11:30", "description": "Explore ancient temple grounds and architecture"},
-  {"title": "Lunch at Market", "type": "activity", "startTime": "12:00", "endTime": "13:30", "description": "Try authentic local cuisine at the central market"},
+  {"title": "Lunch at Local Market", "type": "activity", "startTime": "12:00", "endTime": "13:30", "description": "Try authentic local cuisine"},
   {"title": "Museum Tour", "type": "activity", "startTime": "14:00", "endTime": "16:00", "description": "Learn about local history and culture"},
-  {"title": "Evening Walk", "type": "activity", "startTime": "16:30", "endTime": "18:00", "description": "Stroll through scenic gardens"},
-  {"title": "Dinner & Entertainment", "type": "activity", "startTime": "18:30", "endTime": "20:30", "description": "Enjoy dinner with traditional live music"}
+  {"title": "Dinner & Sunset Views", "type": "activity", "startTime": "18:00", "endTime": "20:00", "description": "Enjoy dinner with scenic city views"}
 ]`;
   }
 

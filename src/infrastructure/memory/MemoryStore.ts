@@ -27,13 +27,25 @@ export class MemoryStore {
    */
   async indexItem(item: TripItem, place?: Place): Promise<MemoryChunk> {
     const text = canonicalizeTripItem(item, place);
-    const embedding = await this.cactusService.embed(text);
+    
+    // Validate text before embedding
+    if (!text || !text.trim()) {
+      throw new Error('Cannot embed empty text for trip item');
+    }
+
+    // Check if model is ready
+    const modelState = this.cactusService.getState();
+    if (!modelState.isDownloaded) {
+      throw new Error('Cactus model not downloaded - cannot create embeddings');
+    }
+
+    const embedding = await this.cactusService.embed(text.trim());
 
     const chunk = createMemoryChunk({
       tripId: item.tripId,
       sourceId: item.id,
       sourceType: 'item',
-      text,
+      text: text.trim(),
       embedding,
     });
 
@@ -70,8 +82,18 @@ export class MemoryStore {
     query: string,
     topK: number = 5
   ): Promise<MemorySearchResult[]> {
-    // Embed the query
-    const queryEmbedding = await this.cactusService.embed(query);
+    // Validate query
+    if (!query || !query.trim()) {
+      console.warn('Empty search query provided');
+      return [];
+    }
+
+    // Check if model is ready
+    const modelState = this.cactusService.getState();
+    if (!modelState.isDownloaded) {
+      console.warn('Cannot search - Cactus model not downloaded');
+      return [];
+    }
 
     // Get all chunks for this trip
     const chunks = await this.memoryRepository.getChunks(tripId);
@@ -79,6 +101,9 @@ export class MemoryStore {
     if (chunks.length === 0) {
       return [];
     }
+
+    // Embed the query
+    const queryEmbedding = await this.cactusService.embed(query.trim());
 
     // Find top-k similar chunks
     const results = findTopK(queryEmbedding, chunks, topK);
@@ -142,24 +167,37 @@ export class MemoryStore {
   ): Promise<MemoryChunk[]> {
     const chunks: MemoryChunk[] = [];
 
+    // Check if model is ready before attempting to embed
+    const modelState = this.cactusService.getState();
+    if (!modelState.isDownloaded) {
+      console.log('Skipping knowledge indexing - Cactus model not downloaded');
+      return chunks;
+    }
+
     for (let i = 0; i < knowledgeTexts.length; i++) {
       const text = knowledgeTexts[i];
-      if (!text.trim()) continue;
+      
+      // Validate text
+      if (!text || !text.trim()) {
+        console.warn(`Skipping empty knowledge text at index ${i}`);
+        continue;
+      }
 
       try {
-        const embedding = await this.cactusService.embed(text);
+        const trimmedText = text.trim();
+        const embedding = await this.cactusService.embed(trimmedText);
         const chunk = createMemoryChunk({
           tripId,
-          sourceId: `knowledge_${Date.now()}_${i}`,
+          sourceId: `knowledge_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`,
           sourceType: 'knowledge',
-          text,
+          text: trimmedText,
           embedding,
         });
 
         await this.memoryRepository.upsertBySource(chunk);
         chunks.push(chunk);
       } catch (err) {
-        console.warn('Failed to index knowledge chunk:', err);
+        console.warn(`Failed to index knowledge chunk ${i}:`, err);
       }
     }
 
