@@ -365,6 +365,18 @@ export function TimelineScreen({ navigation, route }: Props) {
                   : '0 days'}
               </Text>
             </View>
+            <View style={styles.tripInfoStat}>
+              <Text style={styles.tripInfoStatLabel}>EST. BUDGET</Text>
+              <Text style={styles.tripInfoStatValueBudget}>
+                {(() => {
+                  const totalBudget = allItems.reduce((sum, item) => {
+                    const cost = item.metadata?.estimatedCost as number | null | undefined;
+                    return sum + (typeof cost === 'number' ? cost : 0);
+                  }, 0);
+                  return totalBudget > 0 ? `~$${totalBudget}` : 'TBD';
+                })()}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -388,15 +400,27 @@ export function TimelineScreen({ navigation, route }: Props) {
         ) : null}
 
         {/* Day Sections */}
-        {days.map((day) => (
+        {days.map((day) => {
+          // Calculate day's total estimated cost
+          const dayTotalCost = day.items.reduce((sum, item) => {
+            const cost = item.metadata?.estimatedCost as number | null | undefined;
+            return sum + (typeof cost === 'number' ? cost : 0);
+          }, 0);
+          
+          return (
           <View key={day.dayPlan.id} style={styles.daySection}>
             <View style={styles.dayHeader}>
               <Text style={styles.dayTitle}>DAY {day.dayPlan.dayNumber}</Text>
+              {dayTotalCost > 0 && (
+                <Text style={styles.dayBudget}>~${dayTotalCost}</Text>
+              )}
             </View>
 
             {day.items.length > 0 ? (
               <View style={styles.dayContent}>
-                {day.items.map((item) => (
+                {day.items.map((item) => {
+                  const estimatedCost = item.metadata?.estimatedCost as number | null | undefined;
+                  return (
                   <View key={item.id} style={styles.itemRow}>
                     <View style={styles.itemTime}>
                       <Text style={styles.itemTimeText}>
@@ -410,6 +434,9 @@ export function TimelineScreen({ navigation, route }: Props) {
                     >
                       <View style={styles.itemContentInner}>
                         <Text style={styles.itemTitle}>{item.title}</Text>
+                        {typeof estimatedCost === 'number' && estimatedCost > 0 && (
+                          <Text style={styles.itemCost}>~${estimatedCost}</Text>
+                        )}
                       </View>
                       <Text style={styles.itemType}>{item.type}</Text>
                     </TouchableOpacity>
@@ -420,7 +447,8 @@ export function TimelineScreen({ navigation, route }: Props) {
                       <Ionicons name="close" size={20} color="#000000" />
                     </TouchableOpacity>
                   </View>
-                ))}
+                  );
+                })}
               </View>
             ) : (
               <View style={styles.emptyDayContent}>
@@ -438,7 +466,8 @@ export function TimelineScreen({ navigation, route }: Props) {
               <Text style={styles.addItemButtonText}>+ Add Activity</Text>
             </TouchableOpacity>
           </View>
-        ))}
+          );
+        })}
 
         {/* Add Day Button */}
         <TouchableOpacity
@@ -777,6 +806,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  tripInfoStatValueBudget: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#81C784',
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -833,6 +867,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 16,
     borderBottomWidth: 0, // Removed border
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   dayTitle: {
     fontSize: 14,
@@ -840,6 +877,12 @@ const styles = StyleSheet.create({
     color: '#000000',
     letterSpacing: 1,
     textTransform: 'uppercase',
+  },
+  dayBudget: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2E7D32',
+    letterSpacing: 0.5,
   },
   dayContent: {
     padding: 0,
@@ -902,7 +945,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#000000',
-    marginBottom: 4,
+    marginBottom: 2,
+  },
+  itemCost: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2E7D32',
+    marginTop: 2,
   },
   itemType: {
     fontSize: 12,

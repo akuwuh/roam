@@ -308,15 +308,16 @@ CRITICAL REQUIREMENTS FOR VARIETY:
 4. Choose different neighborhoods or areas of the city
 5. Make sure times are realistic and activities don't overlap
 6. Include at least one meal (lunch or dinner)
+7. Include an estimated cost in USD for each activity (e.g., entrance fees, meal costs, transport costs)
 
 Respond with ONLY a JSON array, no markdown, code blocks, or explanation.
 
 Format:
 [
-  {"title": "Visit Historic Temple", "type": "activity", "startTime": "09:30", "endTime": "11:30", "description": "Explore ancient temple grounds and architecture"},
-  {"title": "Lunch at Local Market", "type": "activity", "startTime": "12:00", "endTime": "13:30", "description": "Try authentic local cuisine"},
-  {"title": "Museum Tour", "type": "activity", "startTime": "14:00", "endTime": "16:00", "description": "Learn about local history and culture"},
-  {"title": "Dinner & Sunset Views", "type": "activity", "startTime": "18:00", "endTime": "20:00", "description": "Enjoy dinner with scenic city views"}
+  {"title": "Visit Historic Temple", "type": "activity", "startTime": "09:30", "endTime": "11:30", "description": "Explore ancient temple grounds and architecture", "estimatedCost": 15},
+  {"title": "Lunch at Local Market", "type": "activity", "startTime": "12:00", "endTime": "13:30", "description": "Try authentic local cuisine", "estimatedCost": 25},
+  {"title": "Museum Tour", "type": "activity", "startTime": "14:00", "endTime": "16:00", "description": "Learn about local history and culture", "estimatedCost": 20},
+  {"title": "Dinner & Sunset Views", "type": "activity", "startTime": "18:00", "endTime": "20:00", "description": "Enjoy dinner with scenic city views", "estimatedCost": 50}
 ]`;
   }
 
@@ -376,6 +377,7 @@ Format:
           endDateTime,
           metadata: {
             description: item.description,
+            estimatedCost: typeof item.estimatedCost === 'number' ? item.estimatedCost : null,
             generatedByCloud: true,
           },
         });
@@ -421,16 +423,17 @@ CRITICAL REQUIREMENTS:
 4. Include at least one meal per day (lunch or dinner)
 5. Make sure times are realistic (09:00-21:00) and don't overlap
 6. Plan the trip holistically so days complement each other
+7. Include an estimated cost in USD for each activity (entrance fees, meal costs, transport, etc.)
 
 Respond with a JSON object where each key is "day_1", "day_2", etc., and each value is an array of activities.
 
 Format:
 {
   "day_1": [
-    {"title": "Activity name", "type": "activity", "startTime": "09:30", "endTime": "11:30", "description": "Description"}
+    {"title": "Activity name", "type": "activity", "startTime": "09:30", "endTime": "11:30", "description": "Description", "estimatedCost": 25}
   ],
   "day_2": [
-    {"title": "Different activity", "type": "activity", "startTime": "10:00", "endTime": "12:00", "description": "Description"}
+    {"title": "Different activity", "type": "activity", "startTime": "10:00", "endTime": "12:00", "description": "Description", "estimatedCost": 30}
   ]
 }
 
@@ -496,6 +499,7 @@ IMPORTANT: Generate ${days.length} days of VARIED activities. No markdown, no co
             endDateTime,
             metadata: {
               description: item.description,
+              estimatedCost: typeof item.estimatedCost === 'number' ? item.estimatedCost : null,
               generatedByCloud: true,
             },
           });
