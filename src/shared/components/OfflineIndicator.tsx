@@ -28,7 +28,7 @@ export function OfflineIndicator({ compact = false }: OfflineIndicatorProps) {
     <View style={[styles.container, isOnline ? styles.online : styles.offline]}>
       <View style={[styles.dot, isOnline ? styles.dotOnline : styles.dotOffline]} />
       <Text style={[styles.text, isOnline ? styles.textOnline : styles.textOffline]}>
-        {isOnline ? 'Online' : 'Offline'}
+        {isOnline ? 'ONLINE' : 'OFFLINE'}
       </Text>
     </View>
   );
@@ -40,35 +40,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 0,
     gap: 6,
+    borderWidth: 1,
   },
   online: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#000000',
   },
   offline: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#E5E5E5',
+    borderColor: '#666666',
   },
   dot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 0, // Square dot
   },
   dotOnline: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#000000',
   },
   dotOffline: {
-    backgroundColor: '#FF9800',
+    backgroundColor: '#666666',
   },
   text: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   textOnline: {
-    color: '#2E7D32',
+    color: '#000000',
   },
   textOffline: {
-    color: '#E65100',
+    color: '#666666',
   },
 });
 

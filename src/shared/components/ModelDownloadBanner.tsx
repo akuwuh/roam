@@ -47,7 +47,7 @@ export function ModelDownloadBanner({
       <View style={styles.content}>
         <Text style={styles.icon}>⬇️</Text>
         <View>
-          <Text style={styles.text}>Download AI Model</Text>
+          <Text style={styles.text}>DOWNLOAD AI MODEL</Text>
           <Text style={styles.subtext}>Required for offline chat</Text>
         </View>
       </View>
@@ -58,13 +58,13 @@ export function ModelDownloadBanner({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFFFFF',
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderRadius: 0,
+    borderWidth: 2,
+    borderColor: '#000000',
   },
   content: {
     flexDirection: 'row',
@@ -75,39 +75,45 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   text: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#000000',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   subtext: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#666666',
     marginTop: 2,
+    fontWeight: '500',
   },
   arrow: {
     position: 'absolute',
     right: 16,
     top: '50%',
+    marginTop: -12, // Center vertically
     fontSize: 20,
-    color: '#666666',
+    color: '#000000',
+    fontWeight: '700',
   },
   progressContainer: {
-    height: 6,
+    height: 8,
     backgroundColor: '#E5E5E5',
-    borderRadius: 3,
+    borderRadius: 0,
     marginTop: 12,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
     backgroundColor: '#000000',
-    borderRadius: 3,
+    borderRadius: 0,
   },
   progressText: {
     fontSize: 12,
-    color: '#666666',
+    color: '#000000',
     marginTop: 8,
     textAlign: 'center',
+    fontWeight: '700',
   },
 });
 
