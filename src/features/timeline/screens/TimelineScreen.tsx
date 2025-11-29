@@ -8,12 +8,16 @@ import {
   View,
   Text,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   StyleSheet,
   SafeAreaView,
   ScrollView,
   Modal,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -48,6 +52,7 @@ export function TimelineScreen({ navigation, route }: Props) {
     const selectedDay = days.find((d) => d.dayPlan.id === selectedDayId);
     if (!selectedDay) return;
 
+    Keyboard.dismiss();
     setIsAdding(true);
     try {
       await addItem({
@@ -69,6 +74,12 @@ export function TimelineScreen({ navigation, route }: Props) {
     setNewItemStart('');
     setNewItemEnd('');
     setSelectedDayId(null);
+  };
+
+  const handleCloseModal = () => {
+    Keyboard.dismiss();
+    setShowAddModal(false);
+    resetAddForm();
   };
 
   const handleGeneratePlan = async (dayPlan: TimelineDay['dayPlan']) => {
@@ -107,7 +118,7 @@ export function TimelineScreen({ navigation, route }: Props) {
         </Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
         {days.map((day) => (
           <View key={day.dayPlan.id} style={styles.daySection}>
             <View style={styles.dayHeader}>
@@ -169,68 +180,82 @@ export function TimelineScreen({ navigation, route }: Props) {
 
       {/* Add Item Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Activity</Text>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Activity Name</Text>
-              <TextInput
-                style={styles.input}
-                value={newItemTitle}
-                onChangeText={setNewItemTitle}
-                placeholder="e.g., Visit Temple"
-                placeholderTextColor="#999999"
-              />
-            </View>
-
-            <View style={styles.timeRow}>
-              <View style={styles.timeInput}>
-                <Text style={styles.label}>Start Time</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newItemStart}
-                  onChangeText={setNewItemStart}
-                  placeholder="09:00"
-                  placeholderTextColor="#999999"
-                />
-              </View>
-              <View style={styles.timeInput}>
-                <Text style={styles.label}>End Time</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newItemEnd}
-                  onChangeText={setNewItemEnd}
-                  placeholder="11:00"
-                  placeholderTextColor="#999999"
-                />
-              </View>
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setShowAddModal(false);
-                  resetAddForm();
-                }}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.modalBackdrop} />
+            </TouchableWithoutFeedback>
+            <View style={styles.modalContent}>
+              <ScrollView 
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.createButton, isAdding && styles.buttonDisabled]}
-                onPress={handleAddItem}
-                disabled={isAdding}
-              >
-                {isAdding ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.createButtonText}>Add</Text>
-                )}
-              </TouchableOpacity>
+                <Text style={styles.modalTitle}>Add Activity</Text>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Activity Name</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newItemTitle}
+                    onChangeText={setNewItemTitle}
+                    placeholder="e.g., Visit Temple"
+                    placeholderTextColor="#999999"
+                    returnKeyType="next"
+                  />
+                </View>
+
+                <View style={styles.timeRow}>
+                  <View style={styles.timeInput}>
+                    <Text style={styles.label}>Start Time</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={newItemStart}
+                      onChangeText={setNewItemStart}
+                      placeholder="09:00"
+                      placeholderTextColor="#999999"
+                      returnKeyType="next"
+                    />
+                  </View>
+                  <View style={styles.timeInput}>
+                    <Text style={styles.label}>End Time</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={newItemEnd}
+                      onChangeText={setNewItemEnd}
+                      placeholder="11:00"
+                      placeholderTextColor="#999999"
+                      returnKeyType="done"
+                      onSubmitEditing={handleAddItem}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={handleCloseModal}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.createButton, isAdding && styles.buttonDisabled]}
+                    onPress={handleAddItem}
+                    disabled={isAdding}
+                  >
+                    {isAdding ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.createButtonText}>Add</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </View>
-          </View>
-        </View>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
     </SafeAreaView>
   );
@@ -375,8 +400,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
@@ -384,6 +412,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 24,
@@ -451,4 +480,3 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
-

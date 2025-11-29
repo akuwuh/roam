@@ -1,6 +1,5 @@
 /**
  * Chat Input Component
- * Migrated from src/components/ChatInput.tsx
  */
 
 import React, { useState } from 'react';
@@ -9,8 +8,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   Text,
 } from 'react-native';
 
@@ -36,38 +33,34 @@ export function ChatInput({
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <View style={styles.container}>
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder={placeholder}
-            placeholderTextColor="#999999"
-            multiline
-            maxLength={2000}
-            editable={!disabled}
-            onSubmitEditing={handleSend}
-            blurOnSubmit={false}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              (!text.trim() || disabled) && styles.sendButtonDisabled,
-            ]}
-            onPress={handleSend}
-            disabled={!text.trim() || disabled}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.sendButtonText}>→</Text>
-          </TouchableOpacity>
-        </View>
+    <View style={styles.container}>
+      <View style={styles.inputWrapper}>
+        <TextInput
+          style={styles.input}
+          value={text}
+          onChangeText={setText}
+          placeholder={placeholder}
+          placeholderTextColor="#999999"
+          multiline
+          maxLength={2000}
+          editable={!disabled}
+          returnKeyType="send"
+          blurOnSubmit={false}
+          onSubmitEditing={handleSend}
+        />
+        <TouchableOpacity
+          style={[
+            styles.sendButton,
+            (!text.trim() || disabled) && styles.sendButtonDisabled,
+          ]}
+          onPress={handleSend}
+          disabled={!text.trim() || disabled}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.sendButtonText}>→</Text>
+        </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -83,7 +76,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     backgroundColor: '#F5F5F5',
-    borderRadius: 8,
+    borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderWidth: 1,
@@ -106,7 +99,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#E5E5E5',
+    backgroundColor: '#CCCCCC',
   },
   sendButtonText: {
     color: '#FFFFFF',
@@ -114,4 +107,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

@@ -8,12 +8,17 @@ import {
   View,
   Text,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   StyleSheet,
   SafeAreaView,
   FlatList,
   Modal,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -39,6 +44,7 @@ export function TripListScreen({ navigation }: Props) {
   const handleCreateTrip = async () => {
     if (!newTripName.trim() || !startDate || !endDate) return;
 
+    Keyboard.dismiss();
     setIsCreating(true);
     try {
       const trip = await createNewTrip({
@@ -54,6 +60,11 @@ export function TripListScreen({ navigation }: Props) {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleCloseModal = () => {
+    Keyboard.dismiss();
+    setShowCreateModal(false);
   };
 
   const renderTrip = ({ item }: { item: Trip }) => (
@@ -119,64 +130,81 @@ export function TripListScreen({ navigation }: Props) {
 
       {/* Create Trip Modal */}
       <Modal visible={showCreateModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>New Trip</Text>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Trip Name</Text>
-              <TextInput
-                style={styles.input}
-                value={newTripName}
-                onChangeText={setNewTripName}
-                placeholder="e.g., Tokyo Adventure"
-                placeholderTextColor="#999999"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Start Date</Text>
-              <TextInput
-                style={styles.input}
-                value={startDate}
-                onChangeText={setStartDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#999999"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>End Date</Text>
-              <TextInput
-                style={styles.input}
-                value={endDate}
-                onChangeText={setEndDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#999999"
-              />
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setShowCreateModal(false)}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.modalBackdrop} />
+            </TouchableWithoutFeedback>
+            <View style={styles.modalContent}>
+              <ScrollView 
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.createButton, isCreating && styles.buttonDisabled]}
-                onPress={handleCreateTrip}
-                disabled={isCreating}
-              >
-                {isCreating ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.createButtonText}>Create</Text>
-                )}
-              </TouchableOpacity>
+                <Text style={styles.modalTitle}>New Trip</Text>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Trip Name</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newTripName}
+                    onChangeText={setNewTripName}
+                    placeholder="e.g., Tokyo Adventure"
+                    placeholderTextColor="#999999"
+                    returnKeyType="next"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Start Date</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={startDate}
+                    onChangeText={setStartDate}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor="#999999"
+                    returnKeyType="next"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>End Date</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={endDate}
+                    onChangeText={setEndDate}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor="#999999"
+                    returnKeyType="done"
+                    onSubmitEditing={handleCreateTrip}
+                  />
+                </View>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={handleCloseModal}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.createButton, isCreating && styles.buttonDisabled]}
+                    onPress={handleCreateTrip}
+                    disabled={isCreating}
+                  >
+                    {isCreating ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.createButtonText}>Create</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </View>
-          </View>
-        </View>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
     </SafeAreaView>
   );
@@ -251,8 +279,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
@@ -260,6 +291,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 24,
@@ -320,4 +352,3 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
-

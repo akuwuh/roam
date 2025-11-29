@@ -8,10 +8,14 @@ import {
   View,
   Text,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   StyleSheet,
   SafeAreaView,
   FlatList,
   ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -60,11 +64,15 @@ export function ChatScreen({ navigation, route }: Props) {
   );
 
   const renderEmptyState = () => (
-    <EmptyState
-      icon="🧠"
-      title="Trip Brain"
-      subtitle="Ask me anything about your itinerary. I can help with questions, suggestions, and schedule changes."
-    />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={styles.emptyContainer}>
+        <EmptyState
+          icon="🧠"
+          title="Trip Brain"
+          subtitle="Ask me anything about your itinerary. I can help with questions, suggestions, and schedule changes."
+        />
+      </View>
+    </TouchableWithoutFeedback>
   );
 
   const renderDownloadState = () => (
@@ -141,24 +149,33 @@ export function ChatScreen({ navigation, route }: Props) {
         </View>
       )}
 
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(_, index) => index.toString()}
-        contentContainerStyle={[
-          styles.messageList,
-          messages.length === 0 && styles.messageListEmpty,
-        ]}
-        ListEmptyComponent={renderEmptyState}
-        showsVerticalScrollIndicator={false}
-      />
+      <KeyboardAvoidingView
+        style={styles.chatContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(_, index) => index.toString()}
+          contentContainerStyle={[
+            styles.messageList,
+            messages.length === 0 && styles.messageListEmpty,
+          ]}
+          ListEmptyComponent={renderEmptyState}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          onScrollBeginDrag={Keyboard.dismiss}
+        />
 
-      <ChatInput
-        onSend={ask}
-        disabled={isGenerating}
-        placeholder={isGenerating ? 'Thinking...' : 'Ask about your trip...'}
-      />
+        <ChatInput
+          onSend={ask}
+          disabled={isGenerating}
+          placeholder={isGenerating ? 'Thinking...' : 'Ask about your trip...'}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -167,6 +184,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  chatContainer: {
+    flex: 1,
   },
   header: {
     paddingHorizontal: 24,
@@ -206,6 +226,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   messageListEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  emptyContainer: {
     flex: 1,
     justifyContent: 'center',
   },
@@ -273,4 +297,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

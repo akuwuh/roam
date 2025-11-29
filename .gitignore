@@ -30,13 +30,24 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# Environment variables - IMPORTANT: Keep API keys out of git!
+.env
+.env.local
 .env*.local
+# Note: .env.example is committed to show required vars
 
 # typescript
 *.tsbuildinfo
 
 # generated native folders
-# Note: ios folder is tracked to preserve custom native configuration
-# /ios
+# ios is regenerated via `npx expo prebuild`
+/ios
 /android
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+DerivedData/
+
+# CocoaPods (regenerated via pod install)
+Pods/

@@ -1,5 +1,5 @@
 /**
- * Cloud Planner API - External itinerary generation
+ * Cloud Planner API - External itinerary generation via OpenRouter
  * PRD Phase 4, Section 4.2 - Hybrid Day Planner
  * 
  * Note: This sends only non-PII data (city, date, interests)
@@ -10,10 +10,12 @@ import type { TripItem } from '../../domain/models';
 import { createTripItem } from '../../domain/models';
 import type { PlannerRequest, TimeRange } from '../../types';
 
-// Using Gemini API for cloud planning
-const GEMINI_API_KEY = Constants.expoConfig?.extra?.geminiApiKey || '';
-const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+// OpenRouter API configuration
+const OPENROUTER_API_KEY = Constants.expoConfig?.extra?.openRouterApiKey || '';
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+// Default model - can be changed to any model on OpenRouter
+const DEFAULT_MODEL = 'anthropic/claude-3.5-sonnet';
 
 export interface CloudPlannerResponse {
   items: TripItem[];
@@ -22,8 +24,14 @@ export interface CloudPlannerResponse {
 }
 
 export class CloudPlannerApi {
+  private model: string;
+
+  constructor(model: string = DEFAULT_MODEL) {
+    this.model = model;
+  }
+
   /**
-   * Generate an itinerary using cloud AI
+   * Generate an itinerary using cloud AI via OpenRouter
    * PRD 4.2: Only sends city, date, time ranges, interests (no PII)
    */
   async generateItinerary(
@@ -31,37 +39,54 @@ export class CloudPlannerApi {
     tripId: string,
     dayPlanId: string
   ): Promise<CloudPlannerResponse> {
-    if (!GEMINI_API_KEY) {
+    if (!OPENROUTER_API_KEY) {
       return {
         items: [],
         success: false,
-        error: 'Cloud planner API key not configured',
+        error: 'OpenRouter API key not configured. Add OPENROUTER_API_KEY to your .env file.',
       };
     }
 
     const prompt = this.buildPrompt(request);
 
     try {
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'https://roam.app', // Required by OpenRouter
+          'X-Title': 'Roam Travel Planner', // Optional, shows in OpenRouter dashboard
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          model: this.model,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a travel planning assistant. Always respond with valid JSON arrays only, no markdown or explanations.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 1000,
         }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Cloud planner API error:', errorText);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('OpenRouter API error:', errorData);
         return {
           items: [],
           success: false,
-          error: `API request failed: ${response.status}`,
+          error: `API request failed: ${response.status} - ${errorData.error?.message || 'Unknown error'}`,
         };
       }
 
       const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const text = data.choices?.[0]?.message?.content;
 
       if (!text) {
         return {
@@ -105,7 +130,7 @@ export class CloudPlannerApi {
 Available time: ${timeRangeStr || 'full day'}.
 ${interestsStr}
 
-IMPORTANT: Respond with ONLY a JSON array, no markdown or explanation.
+Respond with ONLY a JSON array, no markdown or explanation.
 Each item must have: title, type (activity|transport|lodging), startTime (HH:mm), endTime (HH:mm), description.
 
 Example format:
@@ -185,4 +210,3 @@ Generate 4-6 activities with realistic times. Include brief descriptions.`;
 }
 
 export const cloudPlannerApi = new CloudPlannerApi();
-

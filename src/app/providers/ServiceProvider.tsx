@@ -3,7 +3,7 @@
  * PRD Section 6.1 - Allows test mocks
  */
 
-import React, { createContext, useContext, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useMemo, useEffect, useState } from 'react';
 import { useCactusLM } from 'cactus-react-native';
 import {
   TripRepository,
@@ -43,6 +43,16 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
   const cactusLM = useCactusLM({
     contextSize: 2048,
   });
+
+  // Auto-download model on first launch
+  useEffect(() => {
+    if (!cactusLM.isDownloaded && !cactusLM.isDownloading) {
+      console.log('Auto-downloading AI model...');
+      cactusLM.download({
+        onProgress: (p: number) => console.log(`Model download: ${Math.round(p * 100)}%`),
+      });
+    }
+  }, [cactusLM.isDownloaded, cactusLM.isDownloading]);
 
   // Create services with memoization
   const services = useMemo<Services>(() => {
