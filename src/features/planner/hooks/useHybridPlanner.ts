@@ -19,6 +19,7 @@ export interface UseHybridPlannerResult {
     date: string;
     timeRanges?: TimeRange[];
     interests?: string[];
+    skipKnowledgeFetch?: boolean; // Add option to skip knowledge fetch for parallel calls
   }) => Promise<TripItem[]>;
   replanLocal: (params: {
     tripId: string;
@@ -46,6 +47,7 @@ export function useHybridPlanner(): UseHybridPlannerResult {
       date: string;
       timeRanges?: TimeRange[];
       interests?: string[];
+      skipKnowledgeFetch?: boolean;
     }): Promise<TripItem[]> => {
       setIsGenerating(true);
       setError(null);
@@ -87,6 +89,7 @@ export function useHybridPlanner(): UseHybridPlannerResult {
     date: string;
     timeRanges?: TimeRange[];
     interests?: string[];
+    skipKnowledgeFetch?: boolean;
   }): Promise<TripItem[]> => {
     const request: PlannerRequest = {
       city: params.city,
@@ -98,7 +101,8 @@ export function useHybridPlanner(): UseHybridPlannerResult {
     const response = await cloudPlannerApi.generateItinerary(
       request,
       params.tripId,
-      params.dayPlanId
+      params.dayPlanId,
+      params.skipKnowledgeFetch ?? false // Pass through the flag
     );
 
     if (!response.success) {
@@ -126,7 +130,7 @@ export function useHybridPlanner(): UseHybridPlannerResult {
       console.log('Skipping item indexing - Cactus model not downloaded');
     }
 
-    // Auto-index knowledge context for offline RAG (only if model is downloaded)
+    // Auto-index knowledge context for offline RAG (only if model is downloaded and we fetched it)
     if (modelState.isDownloaded && response.knowledgeContext && response.knowledgeContext.length > 0) {
       try {
         await memoryStore.indexKnowledge(params.tripId, response.knowledgeContext);

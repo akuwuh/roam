@@ -25,6 +25,7 @@ import { useTimeline, type TimelineDay } from '../hooks/useTimeline';
 import { useHybridPlanner } from '../../planner/hooks/useHybridPlanner';
 import { useModelStatus } from '../../../infrastructure/cactus';
 import { formatTime } from '../../../domain/services';
+import { useServices } from '../../../app/providers';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Timeline'>;
@@ -44,6 +45,7 @@ export function TimelineScreen({ navigation, route }: Props) {
   const { trip, days, allItems, isLoading, addItem, addDay, deleteItem, refresh } = useTimeline(tripId);
   const { generatePlan, isGenerating: isPlanGenerating } = useHybridPlanner();
   const modelStatus = useModelStatus();
+  const { cloudPlannerApi, tripRepository, memoryStore, cactusService } = useServices();
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -133,17 +135,73 @@ export function TimelineScreen({ navigation, route }: Props) {
     
     setIsGeneratingFull(true);
     try {
-      // Generate plan for each empty day
-      for (const day of days) {
-        if (day.items.length === 0) {
-          await generatePlan({
-            tripId,
+      const emptyDays = days.filter(day => day.items.length === 0);
+      
+      if (emptyDays.length === 0) return;
+      
+      if (emptyDays.length === 1) {
+        // Single day - use existing single-day API
+        await generatePlan({
+          tripId,
+          dayPlanId: emptyDays[0].dayPlan.id,
+          city: trip.destination || trip.name,
+          date: emptyDays[0].dayPlan.date,
+        });
+      } else {
+        // Multi-day - generate all days in ONE API call for guaranteed variety
+        console.log(`Generating ${emptyDays.length} days in a single API call...`);
+        
+        const response = await cloudPlannerApi.generateMultiDayItinerary(
+          tripId,
+          trip.destination || trip.name,
+          emptyDays.map(day => ({
             dayPlanId: day.dayPlan.id,
-            city: trip.destination || trip.name,
             date: day.dayPlan.date,
-          });
+            dayNumber: day.dayPlan.dayNumber,
+          }))
+        );
+
+        console.log('Multi-day API response received:', response.success);
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to generate multi-day itinerary');
         }
+
+        // Save all items at once
+        const allItemsToSave: TripItem[] = [];
+        response.itemsByDay.forEach((items) => {
+          allItemsToSave.push(...items);
+        });
+
+        console.log(`Saving ${allItemsToSave.length} items across ${emptyDays.length} days...`);
+        await tripRepository.upsertTripItems(allItemsToSave);
+        console.log(`Saved ${allItemsToSave.length} items successfully`);
+
+        // Index for RAG if model is downloaded
+        const modelState = cactusService.getState();
+        if (modelState.isDownloaded) {
+          console.log('Indexing items for RAG...');
+          for (const item of allItemsToSave) {
+            try {
+              await memoryStore.indexItem(item, undefined);
+            } catch (err) {
+              console.warn('Failed to index item:', err);
+            }
+          }
+
+          if (response.knowledgeContext.length > 0) {
+            try {
+              await memoryStore.indexKnowledge(tripId, response.knowledgeContext);
+              console.log(`Indexed ${response.knowledgeContext.length} knowledge chunks`);
+            } catch (err) {
+              console.warn('Failed to index knowledge:', err);
+            }
+          }
+        }
+        
+        console.log('Multi-day generation complete!');
       }
+      
       await refresh();
     } finally {
       setIsGeneratingFull(false);
