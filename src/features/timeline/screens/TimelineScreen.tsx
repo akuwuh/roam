@@ -21,7 +21,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RouteProp } from '@react-navigation/native';
+import { useFocusEffect, type RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../types';
 import type { TripItem } from '../../../domain/models';
 import { useTimeline, type TimelineDay } from '../hooks/useTimeline';
@@ -90,6 +90,12 @@ export function TimelineScreen({ navigation, route }: Props) {
   const { generatePlan, isGenerating: isPlanGenerating } = useHybridPlanner();
   const modelStatus = useModelStatus();
   const { cloudPlannerApi, tripRepository, memoryStore, cactusService } = useServices();
+  
+  useFocusEffect(
+    React.useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
